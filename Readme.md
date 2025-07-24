@@ -1,0 +1,5 @@
+# BG
+
+示例按照官方的llama.android，官方示例内使用的很多common函数已经废弃，且编译好后的install dir内缺失common静态库，加之官方示例的android项目每次运行都得去根项目编译
+
+基于最新版本的llama.cpp预编译了动态库和静态库（ndk的工具链），方便快捷启用的普通JNI项目，模型文件放置在assets内
