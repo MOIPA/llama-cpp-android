@@ -19,6 +19,7 @@ class LLMAndroid() {
             Log.d(tag, "Dedicated thread for native code: ${Thread.currentThread().name}")
 
             // No-op if called more than once.
+//            System.loadLibrary("OpenCL")
             System.loadLibrary("llm")
 
             // Set llama log handler to Android
@@ -38,7 +39,7 @@ class LLMAndroid() {
     private val nlen: Int = 64
 
     private external fun log_to_android()
-    private external fun load_model(filename: String): Long
+    private external fun load_model(filename: String,layers:Int=0): Long
     private external fun free_model(model: Long)
     private external fun new_context(model: Long): Long
     private external fun free_context(context: Long)
@@ -91,11 +92,11 @@ class LLMAndroid() {
         }
     }
 
-    suspend fun load(pathToModel: String) {
+    suspend fun load(pathToModel: String,layers:Int=0) {
         withContext(runLoop) {
             when (threadLocalState.get()) {
                 is State.Idle -> {
-                    val model = load_model(pathToModel)
+                    val model = load_model(pathToModel,layers)
                     if (model == 0L)  throw IllegalStateException("load_model() failed")
 
                     val context = new_context(model)

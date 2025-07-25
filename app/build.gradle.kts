@@ -7,6 +7,7 @@ plugins {
 android {
     namespace = "com.example.myllm"
     compileSdk = 35
+//    ndkVersion="29.0.13599879"
 
     defaultConfig {
         applicationId = "com.example.myllm"
@@ -16,6 +17,12 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        externalNativeBuild {
+            cmake {
+                arguments.add("-DANDROID_STL=c++_shared")
+            }
+        }
     }
 
     buildTypes {

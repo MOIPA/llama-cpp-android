@@ -63,8 +63,10 @@ static void log_callback(ggml_log_level level, const char * fmt, void * data) {
 
 extern "C"
 JNIEXPORT jlong JNICALL
-Java_com_example_myllm_LLMAndroid_load_1model(JNIEnv *env, jobject, jstring filename) {
+Java_com_example_myllm_LLMAndroid_load_1model(JNIEnv *env, jobject, jstring filename, jint layers) {
     llama_model_params model_params = llama_model_default_params();
+    // GPU设置
+    model_params.n_gpu_layers = layers;// 尝试将前 k 层卸载到 GPU (OpenCL)
 
     auto path_to_model = env->GetStringUTFChars(filename, 0);
     LOGi("Loading model from %s", path_to_model);

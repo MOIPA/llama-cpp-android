@@ -25,7 +25,7 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
         private val NanosPerSecond = 1_000_000_000.0
     }
     init{
-        load("smol.gguf")
+        load("qwen.gguf",0)
     }
     private val tag: String? = this::class.simpleName
     var messages by mutableStateOf(listOf("Initializing..."))
@@ -42,7 +42,7 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
         messages += message
     }
 
-    fun load(modelName: String) {
+    fun load(modelName: String,layers:Int=0) {
         viewModelScope.launch {
             try {
                 // 加载前判断模型是否存在，不存在从assets拷贝
@@ -66,7 +66,7 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
                         messages+="model exists"
                     }
                 }
-                llmAndroid.load(modelFile.absolutePath)
+                llmAndroid.load(modelFile.absolutePath,layers)
                 withContext(Dispatchers.Main) {
                     messages += "Loaded ${modelFile.absolutePath}"
                 }
@@ -110,7 +110,7 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
                     messages += "Warm up took too long, aborting benchmark"
                     return@launch
                 }
-                messages += llmAndroid.bench(512, 128, 1, 3)
+                messages += llmAndroid.bench(pp, tg, pl, nr)
             } catch (exc: IllegalStateException) {
                 Log.e(tag, "bench() failed", exc)
                 messages += exc.message!!
