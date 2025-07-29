@@ -89,7 +89,7 @@ fun MainCompose(
         )
         Row {
             Button({ viewModel.send() }) { Text("Send") }
-            Button({ viewModel.bench(8, 4, 1) }) { Text("Bench") }
+            Button({ viewModel.bench(32, 32, 3) }) { Text("Bench") }
             Button({ viewModel.clear() }) { Text("Clear") }
             Button({
                 viewModel.messages.joinToString("\n").let {

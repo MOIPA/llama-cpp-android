@@ -18,30 +18,75 @@ warmup time 超过5秒的无实际意义了，直接标注为infinity
 
 + 型号: 努比亚Z60 Ultra
 + SOC: 骁龙8Gen3 3.3GHZ 
-+ GPU: 高通750
++ GPU: 高通 Adreno 750
 + OS驱动: openCL
-+ 模型: qwen2.5-1.5b-instruct
-+ 量化: Q8_0
 + Layers: 28
-+ Size: 1.8G
-+ Params: 1.8B
 + Mutimodal: OFF
 
 ### 实际测速
 
+#### 1. 量化: Q8_0
 
-|OffLoad Layers|pp (tps)|tg (tps)|warmup (s)|
++ 模型: qwen2.5-1.5B-instruct_Q8_0
++ pp: 64
++ tg: 32
++ nr: 3
+
+> ngl: n_gpu_layers
+
+|ngl|pp (tps)|tg (tps)|warmup (s)|
 |----|----|----|----|
-|0|75 |23 |x|
-|5|81 |5.9 |9|
-|10|81 |5.9 |0.795|
-|15|83 |4 |1.17|
-|20|75|2.4|4.74|
-|25|infinity|infinity|11|
-|28(MAX)|75|2.2|2.2|
+|0|75 |49 |2.22|
+|5|79 |31 |4|
+|10|71 |19 |5.6|
+|15|62 |12 |9|
+|20|28|9|11|
+|25|24|7|13|
+|28(MAX)|22|5|18|
 
 
-# 注意点
+#### 2. 量化: Q4_K_M
 
-目前还不支持vulkan
++ 模型: Qwen3-1.7B-Q4_K_M
++ pp: 64
++ tg: 32
++ nr: 3
+
+|ngl|pp (tps)|tg (tps)|warmup (s)|
+|----|----|----|----|
+|0|89 |42 |2.6|
+|5|48 |21 |5.2|
+|10|41 |12 |8.5|
+|15|32 |8.9 |11.8|
+|20|24|6.4|16.2|
+|25|24|5.6|18.6|
+|28(MAX)|19|5.1|20.62|
+
+#### 3. 量化: Q4_0
+
++ 模型: Qwen3-1.7B-Q4_0
++ pp: 64
++ tg: 32
++ nr: 3
+
+|ngl|pp (tps)|tg (tps)|warmup (s)|
+|----|----|----|----|
+|0|240 |50 |2.1|
+|5|140 |23 |4.31|
+|10|93 |12 |8.1|
+|15|73 |8.5 |11.79|
+|20|62|6.6|15|
+|25|52|5.3|20.6|
+|28(MAX)|51|4.3|22.94|
+
+# 注意
+
+> Vulkan usually slower than CPU.
+>
+> OpenCl only work with Snapdragon 8 Gen 3 and Snapdragon 8 Elite .
+
+
+1. OpenCL 目前只支持 f32、f16、q6_K 和 q4_0，特别对于Qwen系列模型，它的 q4_K 和 q5_K 张量需要在 CPU 上运行，也不支持 MoE 模型，所有张量仍会存储在CPU中。
+
+2. 即使是q4_0，实际在openCL后端下测试的性能随着offload到GPU的层数变多，性能更差且手机更容易发烫。
 

@@ -194,15 +194,19 @@ jint pl,
     const auto t_tg_start = ggml_time_us();
     for (i = 0; i < tg; i++) {
 
-    common_batch_clear(*batch);
-    for (j = 0; j < pl; j++) {
-    common_batch_add(*batch, 0, i, { j }, true);
-    }
+        common_batch_clear(*batch);
+        for (j = 0; j < pl; j++) {
+        common_batch_add(*batch, 0, i, { j }, true);
+        }
 
-    LOGi("llama_decode() text generation: %d", i);
-    if (llama_decode(context, *batch) != 0) {
-    LOGi("llama_decode() failed during text generation");
-    }
+        LOGi("llama_decode() text generation: %d", i);
+        const auto g1_start = ggml_time_us();
+        if (llama_decode(context, *batch) != 0) {
+        LOGi("llama_decode() failed during text generation");
+        }
+        const auto g1_end = ggml_time_us();
+        LOGi("llama_decode() text generation: %d, time usage: %f ms", i, double(g1_end - g1_start)/1000.0);
+
     }
 
     const auto t_tg_end = ggml_time_us();

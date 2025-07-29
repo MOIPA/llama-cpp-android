@@ -16,38 +16,48 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-class MainViewModel(application: Application): AndroidViewModel(application) {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val llmAndroid: LLMAndroid= LLMAndroid.instance()
+    private val llmAndroid: LLMAndroid = LLMAndroid.instance()
+    private val gpu_layers = 0
 
     companion object {
         @JvmStatic
         private val NanosPerSecond = 1_000_000_000.0
     }
-    init{
-        load("qwen.gguf",0)
+
+    init {
+//        load("smol.gguf", gpu_layers) // smol256m q8_0
+//        load("qwen.gguf", gpu_layers)  qwen2.5-1.5b-Q8_0
+//        load("qwen3.gguf", gpu_layers) // qwen3-1.5b Q4_K_M
+//        load("qwen3-q40.gguf", gpu_layers) // qwen3-1.5b Q4_0
+        load("Llama-3.2-1BQ4_0.gguf",gpu_layers)
     }
+
     private val tag: String? = this::class.simpleName
     var messages by mutableStateOf(listOf("Initializing..."))
         private set
     var message by mutableStateOf("")
         private set
+
     fun updateMessage(message: String) {
         this.message = message;
     }
-    fun clear(){
+
+    fun clear() {
         this.messages = listOf()
     }
-    fun log(message:String){
+
+    fun log(message: String) {
         messages += message
     }
 
-    fun load(modelName: String,layers:Int=0) {
+    fun load(modelName: String, layers: Int = 0) {
         viewModelScope.launch {
             try {
                 // 加载前判断模型是否存在，不存在从assets拷贝
                 val appCtx = application.applicationContext
-                val modelFile = File(appCtx.filesDir,modelName)
+                val modelFile = File(appCtx.filesDir, modelName)
                 if (!modelFile.exists()) {
                     withContext(Dispatchers.Main) {
                         messages += "coping model"
@@ -61,12 +71,12 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
                         }
                         Log.d(tag, "Model copied to ${modelFile.absolutePath}")
                     }
-                }else{
+                } else {
                     withContext(Dispatchers.Main) {
-                        messages+="model exists"
+                        messages += "model exists"
                     }
                 }
-                llmAndroid.load(modelFile.absolutePath,layers)
+                llmAndroid.load(modelFile.absolutePath, layers)
                 withContext(Dispatchers.Main) {
                     messages += "Loaded ${modelFile.absolutePath}"
                 }
@@ -76,27 +86,37 @@ class MainViewModel(application: Application): AndroidViewModel(application) {
                     messages += "failed!!"
                     messages += exc.message!!
                 }
-            }finally {
+            } finally {
                 withContext(Dispatchers.Main) {
                     messages += "load complete"
                 }
             }
         }
     }
-    fun send(){
-        val text = message;
+
+    fun send() {
+        val systemMessage = "You are a helpful assistant."
+        val text = message
+        val formatedPrompt = """
+        <|im_start|>system
+        $systemMessage<|im_end|>
+        <|im_start|>user
+        $text<|im_end|>
+        <|im_start|>assistant
+        """.trimIndent()
         message = "";
-        messages+=text;
+        messages += text;
         messages += ""
         viewModelScope.launch {
-            llmAndroid.send(text).catch {
+            llmAndroid.send(formatedPrompt,true).catch {
                 Log.e("MainViewModel", "Error sending message", it)
-                messages+=it.message!!
+                messages += it.message!!
             }.collect {
-                messages = messages.dropLast(1)+(messages.last()+it)
+                messages = messages.dropLast(1) + (messages.last() + it)
             }
         }
     }
+
     fun bench(pp: Int, tg: Int, pl: Int, nr: Int = 1) {
         viewModelScope.launch {
             try {
