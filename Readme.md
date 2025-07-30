@@ -79,6 +79,12 @@ warmup time 超过5秒的无实际意义了，直接标注为infinity
 |25|52|5.3|20.6|
 |28(MAX)|51|4.3|22.94|
 
+# 会话管理
+
+单轮最大生成长度 nlen
+
+上下文最大长度的限制比较简单，超出就直接清空kv历史缓存，应该清除最老的kv缓存
+
 # 注意
 
 > Vulkan usually slower than CPU.

@@ -16,6 +16,10 @@ jmethodID la_int_var_value;
 jmethodID la_int_var_inc;
 
 std::string cached_token_chars;
+std::vector<llama_chat_message> messages;
+int prev_len = 0;
+int prev_tokens=0;
+
 
 bool is_valid_utf8(const char * string) {
     if (!string) {
@@ -95,9 +99,9 @@ Java_com_example_myllm_LLMAndroid_new_1context(JNIEnv *env, jobject, jlong jmode
     auto model = reinterpret_cast<llama_model *>(jmodel);
 
     if (!model) {
-    LOGe("new_context(): model cannot be null");
-    env->ThrowNew(env->FindClass("java/lang/IllegalArgumentException"), "Model cannot be null");
-    return 0;
+        LOGe("new_context(): model cannot be null");
+        env->ThrowNew(env->FindClass("java/lang/IllegalArgumentException"), "Model cannot be null");
+        return 0;
     }
 
     int n_threads = std::max(1, std::min(8, (int) sysconf(_SC_NPROCESSORS_ONLN) - 2));
@@ -112,10 +116,10 @@ Java_com_example_myllm_LLMAndroid_new_1context(JNIEnv *env, jobject, jlong jmode
     llama_context * context = llama_new_context_with_model(model, ctx_params);
 
     if (!context) {
-    LOGe("llama_new_context_with_model() returned null)");
-    env->ThrowNew(env->FindClass("java/lang/IllegalStateException"),
-    "llama_new_context_with_model() returned null)");
-    return 0;
+        LOGe("llama_new_context_with_model() returned null)");
+        env->ThrowNew(env->FindClass("java/lang/IllegalStateException"),
+        "llama_new_context_with_model() returned null)");
+        return 0;
     }
 
     return reinterpret_cast<jlong>(context);
@@ -301,7 +305,10 @@ Java_com_example_myllm_LLMAndroid_new_1sampler(JNIEnv *, jobject) {
     auto sparams = llama_sampler_chain_default_params();
     sparams.no_perf = true;
     llama_sampler * smpl = llama_sampler_chain_init(sparams);
-    llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
+//    llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
+    llama_sampler_chain_add(smpl, llama_sampler_init_min_p(0.05f, 1));
+    llama_sampler_chain_add(smpl, llama_sampler_init_temp(0.8f));
+    llama_sampler_chain_add(smpl, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     return reinterpret_cast<jlong>(smpl);
 }
@@ -341,28 +348,55 @@ Java_com_example_myllm_LLMAndroid_completion_1init(
     const auto text = env->GetStringUTFChars(jtext, 0);
     const auto context = reinterpret_cast<llama_context *>(context_pointer);
     const auto batch = reinterpret_cast<llama_batch *>(batch_pointer);
+    // chat历史记忆，会话预处理
+    std::vector<char> formatted(llama_n_ctx(context));
+    const auto model = llama_get_model(context);
+    const llama_vocab * vocab = llama_model_get_vocab(model);
+    const char * tmpl = llama_model_chat_template(model, /* name */ nullptr);
+    messages.push_back({"user", strdup(text)}); // 添加用户会话
+    int new_len = llama_chat_apply_template(tmpl, messages.data(), messages.size(), true, formatted.data(), formatted.size());
+    if (new_len > (int)formatted.size()) {
+        formatted.resize(new_len);
+        new_len = llama_chat_apply_template(tmpl, messages.data(), messages.size(), true, formatted.data(), formatted.size());
+    }
+    if (new_len < 0) {
+        LOGe("failed to apply the chat template\n");
+    }
+    std::string prompt(formatted.begin() + prev_len, formatted.begin() + new_len); // 新的prompt
+    LOGi("Current Chat History (Size: %zu):", messages.size());
+    for (size_t i = 0; i < messages.size(); ++i) {
+        const llama_chat_message& msg_to_log = messages[i];
+        const char* role_to_log = msg_to_log.role ? msg_to_log.role : "[null role]";
+        const char* content_to_log = msg_to_log.content ? msg_to_log.content : "[null content]";
+        LOGi("  Msg %zu: Role: \"%s\", Content: \"%s\"", i, role_to_log, content_to_log);
+    }
+    LOGi("prompt:%s",prompt.c_str());
 
+    // 正常处理
     bool parse_special = (format_chat == JNI_TRUE);
-    const auto tokens_list = common_tokenize(context, text, true, parse_special);
+    const auto tokens_list = common_tokenize(context, prompt, true, parse_special);
 
     auto n_ctx = llama_n_ctx(context);
-    auto n_kv_req = tokens_list.size() + n_len;
+    int n_ctx_used = llama_memory_seq_pos_max(llama_get_memory(context), 0);
+    auto n_kv_req = tokens_list.size() + n_len + n_ctx_used;  // 本轮次会用到的最大kv缓存大小
 
     LOGi("n_len = %d, n_ctx = %d, n_kv_req = %d", n_len, n_ctx, n_kv_req);
 
     if (n_kv_req > n_ctx) {
-    LOGe("error: n_kv_req > n_ctx, the required KV cache size is not big enough");
+        LOGe("error: n_kv_req > n_ctx, the required KV cache size is not big enough, clear history kv cache");
+        llama_memory_clear(llama_get_memory(context), true);
+        prev_tokens = 0;
     }
 
     for (auto id : tokens_list) {
     LOGi("token: `%s`-> %d ", common_token_to_piece(context, id).c_str(), id);
     }
-
     common_batch_clear(*batch);
-
+    int pos = prev_tokens;
+    LOGi("pos = %d", pos);
     // evaluate the initial prompt
     for (auto i = 0; i < tokens_list.size(); i++) {
-    common_batch_add(*batch, tokens_list[i], i, { 0 }, false);
+    common_batch_add(*batch, tokens_list[i], i+pos, { 0 }, false);
     }
 
     // llama_decode will output logits only for the last token of the prompt
@@ -373,7 +407,7 @@ Java_com_example_myllm_LLMAndroid_completion_1init(
     }
 
     env->ReleaseStringUTFChars(jtext, text);
-
+    prev_tokens += batch->n_tokens;
     return batch->n_tokens;
 }
 
@@ -403,7 +437,8 @@ Java_com_example_myllm_LLMAndroid_completion_1loop(
 
     const auto n_cur = env->CallIntMethod(intvar_ncur, la_int_var_value);
     if (llama_vocab_is_eog(vocab, new_token_id) || n_cur == n_len) {
-    return nullptr;
+        LOGi("DONE!!! Loop retrun nullptr, n_cur: %d , n_len:%d" , n_cur,n_len); // 本轮生成结果过长了，停止
+        return nullptr;
     }
 
     auto new_token_chars = common_token_to_piece(context, new_token_id);
@@ -411,17 +446,18 @@ Java_com_example_myllm_LLMAndroid_completion_1loop(
 
     jstring new_token = nullptr;
     if (is_valid_utf8(cached_token_chars.c_str())) {
-    new_token = env->NewStringUTF(cached_token_chars.c_str());
-    LOGi("cached: %s, new_token_chars: `%s`, id: %d", cached_token_chars.c_str(), new_token_chars.c_str(), new_token_id);
-    cached_token_chars.clear();
+        new_token = env->NewStringUTF(cached_token_chars.c_str());
+        LOGi("cached: %s, new_token_chars: `%s`, id: %d", cached_token_chars.c_str(), new_token_chars.c_str(), new_token_id);
+        cached_token_chars.clear();
     } else {
-    new_token = env->NewStringUTF("");
+        new_token = env->NewStringUTF("");
     }
 
     common_batch_clear(*batch);
-    common_batch_add(*batch, new_token_id, n_cur, { 0 }, true);
+    common_batch_add(*batch, new_token_id, prev_tokens, { 0 }, true);
 
     env->CallVoidMethod(intvar_ncur, la_int_var_inc);
+    prev_tokens++;
 
     if (llama_decode(context, *batch) != 0) {
     LOGe("llama_decode() returned null");
@@ -434,4 +470,18 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_myllm_LLMAndroid_kv_1cache_1clear(JNIEnv *, jobject, jlong context) {
     llama_memory_clear(llama_get_memory(reinterpret_cast<llama_context *>(context)), true);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_myllm_LLMAndroid_supply(JNIEnv *env, jobject, jstring jtext,jlong jmodel) {
+    const auto response = env->GetStringUTFChars(jtext, 0);
+    messages.push_back({"assistant", strdup(response)});
+    auto model = reinterpret_cast<llama_model *>(jmodel);
+    const char * tmpl = llama_model_chat_template(model, /* name */ nullptr);
+    prev_len = llama_chat_apply_template(tmpl, messages.data(), messages.size(), false, nullptr, 0);
+    if (prev_len < 0) {
+        LOGe("failed to apply the chat template\n");
+    }
+    env->ReleaseStringUTFChars(jtext, response);
 }

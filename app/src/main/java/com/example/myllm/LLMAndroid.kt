@@ -36,7 +36,7 @@ class LLMAndroid() {
         }
     }.asCoroutineDispatcher()
 
-    private val nlen: Int = 128
+    private val nlen: Int = 512
 
     private external fun log_to_android()
     private external fun load_model(filename: String,layers:Int=0): Long
@@ -78,6 +78,8 @@ class LLMAndroid() {
     ): String?
 
     private external fun kv_cache_clear(context: Long)
+
+    private external fun supply(resp: String,model:Long)
 
     suspend fun bench(pp: Int, tg: Int, pl: Int, nr: Int = 1): String {
         return withContext(runLoop) {
@@ -127,11 +129,24 @@ class LLMAndroid() {
                     }
                     emit(str)
                 }
-                kv_cache_clear(state.context)
+                Log.i("LLMAndroid", "DONE!!!")
+//                kv_cache_clear(state.context)
             }
             else -> {}
         }
     }.flowOn(runLoop)
+
+    suspend fun supplyMsg(resp:String){
+        withContext(runLoop) {
+            when (val state = threadLocalState.get()) {
+                is State.Loaded -> {
+                    Log.d(tag, "supplyMsg(): $state resp: $resp")
+                    supply(resp, state.model)
+                }
+                else -> throw IllegalStateException("No model loaded failed to supply msg")
+            }
+        }
+    }
 
     /**
      * Unloads the model and frees resources.
