@@ -17,8 +17,8 @@ jmethodID la_int_var_inc;
 
 std::string cached_token_chars;
 std::vector<llama_chat_message> messages;
-int prev_len = 0;
-int prev_tokens=0;
+int chat_history_tokens_len = 0;
+int prev_tokens_len = 0;
 
 
 bool is_valid_utf8(const char * string) {
@@ -306,8 +306,10 @@ Java_com_example_myllm_LLMAndroid_new_1sampler(JNIEnv *, jobject) {
     sparams.no_perf = true;
     llama_sampler * smpl = llama_sampler_chain_init(sparams);
 //    llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
-    llama_sampler_chain_add(smpl, llama_sampler_init_min_p(0.05f, 1));
-    llama_sampler_chain_add(smpl, llama_sampler_init_temp(0.8f));
+    llama_sampler_chain_add(smpl, llama_sampler_init_min_p(0, 1));
+    llama_sampler_chain_add(smpl, llama_sampler_init_temp(0.6f));
+    llama_sampler_chain_add(smpl, llama_sampler_init_top_k(20));
+    llama_sampler_chain_add(smpl, llama_sampler_init_top_p(0.95,1));
     llama_sampler_chain_add(smpl, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     return reinterpret_cast<jlong>(smpl);
@@ -362,7 +364,7 @@ Java_com_example_myllm_LLMAndroid_completion_1init(
     if (new_len < 0) {
         LOGe("failed to apply the chat template\n");
     }
-    std::string prompt(formatted.begin() + prev_len, formatted.begin() + new_len); // 新的prompt
+    std::string prompt(formatted.begin() + chat_history_tokens_len, formatted.begin() + new_len); // 新的prompt
     LOGi("Current Chat History (Size: %zu):", messages.size());
     for (size_t i = 0; i < messages.size(); ++i) {
         const llama_chat_message& msg_to_log = messages[i];
@@ -385,14 +387,14 @@ Java_com_example_myllm_LLMAndroid_completion_1init(
     if (n_kv_req > n_ctx) {
         LOGe("error: n_kv_req > n_ctx, the required KV cache size is not big enough, clear history kv cache");
         llama_memory_clear(llama_get_memory(context), true);
-        prev_tokens = 0;
+        prev_tokens_len = 0;
     }
 
     for (auto id : tokens_list) {
     LOGi("token: `%s`-> %d ", common_token_to_piece(context, id).c_str(), id);
     }
     common_batch_clear(*batch);
-    int pos = prev_tokens;
+    int pos = prev_tokens_len;
     LOGi("pos = %d", pos);
     // evaluate the initial prompt
     for (auto i = 0; i < tokens_list.size(); i++) {
@@ -407,7 +409,7 @@ Java_com_example_myllm_LLMAndroid_completion_1init(
     }
 
     env->ReleaseStringUTFChars(jtext, text);
-    prev_tokens += batch->n_tokens;
+    prev_tokens_len += batch->n_tokens;
     return batch->n_tokens;
 }
 
@@ -437,7 +439,7 @@ Java_com_example_myllm_LLMAndroid_completion_1loop(
 
     const auto n_cur = env->CallIntMethod(intvar_ncur, la_int_var_value);
     if (llama_vocab_is_eog(vocab, new_token_id) || n_cur == n_len) {
-        LOGi("DONE!!! Loop retrun nullptr, n_cur: %d , n_len:%d" , n_cur,n_len); // 本轮生成结果过长了，停止
+        LOGi("DONE Loop retrun nullptr, n_cur: %d , n_len:%d" , n_cur,n_len); // 本轮生成结果过长了，停止
         return nullptr;
     }
 
@@ -454,10 +456,10 @@ Java_com_example_myllm_LLMAndroid_completion_1loop(
     }
 
     common_batch_clear(*batch);
-    common_batch_add(*batch, new_token_id, prev_tokens, { 0 }, true);
+    common_batch_add(*batch, new_token_id, prev_tokens_len, {0 }, true);
 
     env->CallVoidMethod(intvar_ncur, la_int_var_inc);
-    prev_tokens++;
+    prev_tokens_len++;
 
     if (llama_decode(context, *batch) != 0) {
     LOGe("llama_decode() returned null");
@@ -479,8 +481,8 @@ Java_com_example_myllm_LLMAndroid_supply(JNIEnv *env, jobject, jstring jtext,jlo
     messages.push_back({"assistant", strdup(response)});
     auto model = reinterpret_cast<llama_model *>(jmodel);
     const char * tmpl = llama_model_chat_template(model, /* name */ nullptr);
-    prev_len = llama_chat_apply_template(tmpl, messages.data(), messages.size(), false, nullptr, 0);
-    if (prev_len < 0) {
+    chat_history_tokens_len = llama_chat_apply_template(tmpl, messages.data(), messages.size(), false, nullptr, 0);
+    if (chat_history_tokens_len < 0) {
         LOGe("failed to apply the chat template\n");
     }
     env->ReleaseStringUTFChars(jtext, response);

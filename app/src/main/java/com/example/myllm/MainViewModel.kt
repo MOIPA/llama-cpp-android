@@ -29,7 +29,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
 //        load("smol.gguf", gpu_layers) // smol256m q8_0
 //        load("qwen.gguf", gpu_layers)  qwen2.5-1.5b-Q8_0
-        load("qwen3.gguf", gpu_layers) // qwen3-1.5b Q4_K_M
+        load("qwen3.gguf", gpu_layers) // qwen3-1.7b Q4_K_M
 //        load("qwen3-q40.gguf", gpu_layers) // qwen3-1.5b Q4_0
 //        load("Llama-3.2-1BQ4_0.gguf",gpu_layers)
     }
