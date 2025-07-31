@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include "llama.h"
 #include "common.h"
+#include "mtmd.h"
+#include "mtmd-helper.h"
 
 #define TAG "llama-android.cpp"
 #define LOGi(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
@@ -17,9 +19,10 @@ jmethodID la_int_var_inc;
 
 std::string cached_token_chars;
 std::vector<llama_chat_message> messages;
-int chat_history_tokens_len = 0;
-int prev_tokens_len = 0;
-
+int chat_history_tokens_len = 0;    // 对话历史的所有文字长度，用于找到当前轮次的起始字符长度，储存的是文字长度，后期可以用来作为是否清理历史的阈值
+int prev_tokens_len = 0;        // 目前对话历史的kv缓存长度，储存的是token的长度，后期可以用来作为是否清理历史的阈值
+mtmd::context_ptr ctx_vision;   // 视觉模型上下文
+mtmd::bitmaps bitmaps;          // 处理后的图片集合作为模型回答问题上下文
 
 bool is_valid_utf8(const char * string) {
     if (!string) {
@@ -65,9 +68,48 @@ static void log_callback(ggml_log_level level, const char * fmt, void * data) {
     else __android_log_print(ANDROID_LOG_DEFAULT, TAG, fmt, data);
 }
 
+void init_vision_context(const char * mmprojPath,int gpu,llama_model * model,int verbosity=0) {
+    mtmd_context_params mparams = mtmd_context_params_default();
+    bool useGPU = true;
+    if(gpu==0) useGPU = false;
+    mparams.use_gpu = useGPU;  // true的情况下输出乱码，应该不支持openCL
+    mparams.print_timings = true;
+    int n_threads = std::max(1, std::min(8, (int) sysconf(_SC_NPROCESSORS_ONLN) - 2));
+    LOGi("mmproj model Using %d threads", n_threads);
+    mparams.n_threads = n_threads;
+    mparams.verbosity = verbosity > 0 ? GGML_LOG_LEVEL_DEBUG : GGML_LOG_LEVEL_INFO;
+    ctx_vision.reset(mtmd_init_from_file(mmprojPath, model, mparams));
+    if (!ctx_vision.get()) {
+        LOGe("Failed to load vision model from %s\n", mmprojPath);
+    }else{
+        LOGi("Loaded vision model from %s", mmprojPath);
+    }
+}
+
+/**
+ * 处理图片，图像模型压缩图片信息
+ * @param fname
+ * @return
+ */
+bool load_media(const char * fname) {
+    if (!ctx_vision.get()) {
+        LOGe("Failed to load vision model, load_media failed\n");
+    }
+    mtmd::bitmap bmp(mtmd_helper_bitmap_init_from_file(ctx_vision.get(), fname));
+    if (!bmp.ptr) {
+        return false;
+    }
+    bitmaps.entries.push_back(std::move(bmp));
+    return true;
+}
+
+bool check_vision_ready(){
+    return mtmd_support_vision(ctx_vision.get());
+}
+
 extern "C"
 JNIEXPORT jlong JNICALL
-Java_com_example_myllm_LLMAndroid_load_1model(JNIEnv *env, jobject, jstring filename, jint layers) {
+Java_com_example_myllm_LLMAndroid_load_1model(JNIEnv *env, jobject, jstring filename, jint layers,jstring mmprojf,jint useGPU) {
     llama_model_params model_params = llama_model_default_params();
     // GPU设置
     model_params.n_gpu_layers = layers;// 尝试将前 k 层卸载到 GPU (OpenCL)
@@ -83,6 +125,11 @@ Java_com_example_myllm_LLMAndroid_load_1model(JNIEnv *env, jobject, jstring file
         env->ThrowNew(env->FindClass("java/lang/IllegalStateException"), "load_model() failed");
         return 0;
     }
+
+    // 加载视觉模型
+    auto mmprojPath = env->GetStringUTFChars(mmprojf, 0);
+    init_vision_context(mmprojPath,useGPU,model,0);
+    env->ReleaseStringUTFChars(mmprojf, mmprojPath);
 
     return reinterpret_cast<jlong>(model);
 }
@@ -331,6 +378,120 @@ extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_example_myllm_LLMAndroid_system_1info(JNIEnv *env, jobject) {
     return env->NewStringUTF(llama_print_system_info());
+}
+
+
+extern "C"
+JNIEXPORT jint JNICALL
+/**
+ * 视觉模型处理提示词
+ * @param env
+ * @param context_pointer
+ * @param batch_pointer
+ * @param jtext
+ * @param format_chat
+ * @param n_len
+ * @param picf
+ * @return
+ */
+Java_com_example_myllm_LLMAndroid_completion_1init_1vision(
+        JNIEnv *env,
+        jobject,
+        jlong context_pointer,
+        jlong batch_pointer,
+        jstring jtext,
+        jboolean format_chat,
+        jint n_len,
+        jstring picf
+) {
+
+    cached_token_chars.clear();
+
+    const auto text = env->GetStringUTFChars(jtext, 0);
+    const auto context = reinterpret_cast<llama_context *>(context_pointer);
+    const auto batch = reinterpret_cast<llama_batch *>(batch_pointer);
+    // chat历史记忆，会话预处理
+    std::vector<char> formatted(llama_n_ctx(context));
+    const auto model = llama_get_model(context);
+    const llama_vocab * vocab = llama_model_get_vocab(model);
+    const char * tmpl = llama_model_chat_template(model, /* name */ nullptr);
+    std::string user_text(text);
+    if(prev_tokens_len==0)
+        user_text = mtmd_default_marker() + user_text; // 有图片的时候需要添加占位符
+
+    messages.push_back({"user", strdup(user_text.c_str())}); // 添加用户会话
+    int new_len = llama_chat_apply_template(tmpl, messages.data(), messages.size(), true, formatted.data(), formatted.size());
+    if (new_len > (int)formatted.size()) {
+        formatted.resize(new_len);
+        new_len = llama_chat_apply_template(tmpl, messages.data(), messages.size(), true, formatted.data(), formatted.size());
+    }
+    if (new_len < 0) {
+        LOGe("failed to apply the chat template\n");
+    }
+    std::string prompt(formatted.begin() + chat_history_tokens_len, formatted.begin() + new_len); // 新的prompt
+    LOGi("Current Chat History (Size: %zu):", messages.size());
+    for (size_t i = 0; i < messages.size(); ++i) {
+        const llama_chat_message& msg_to_log = messages[i];
+        const char* role_to_log = msg_to_log.role ? msg_to_log.role : "[null role]";
+        const char* content_to_log = msg_to_log.content ? msg_to_log.content : "[null content]";
+        LOGi("  Msg %zu: Role: \"%s\", Content: \"%s\"", i, role_to_log, content_to_log);
+    }
+    // 测试代码，加载模型的时候也加载一张测试图片，测试是否能正常运行，后期删除
+    auto picPath = env->GetStringUTFChars(picf, 0);
+    if(load_media(picPath)){
+        LOGi("pic %s loaded successfully",picPath);
+    }
+    env->ReleaseStringUTFChars(picf, picPath);
+//    prompt = mtmd_default_marker() + prompt;    // 这张图片加载后需要再prompt开头加上图片标记符号
+    LOGi("prompt:%s",prompt.c_str());
+    // 正常处理
+    bool parse_special = (format_chat == JNI_TRUE);
+    // 视觉内容处理
+    bool add_bos = true; // 是否是第一句话 对于一个全新对话的第一段用户输入，或者当 KV 缓存被清除后，通常需要添加 BOS token。所以 add_bos 设为 true 是合适的
+    if(prev_tokens_len > 0){
+        add_bos = false;
+    }
+    LOGi("cpp:prev_tokens_len = %d, add_bos = %d",prev_tokens_len,add_bos);
+
+    mtmd_input_text mtmd_text;
+    mtmd_text.text          = prompt.c_str();
+    mtmd_text.add_special   = add_bos;
+    mtmd_text.parse_special = true;
+    int n_batch = 512; // 一个输入会被拆分成 n_batch 个 token
+    // 初始化视觉输入 结合图像和文本内容
+    mtmd::input_chunks chunks(mtmd_input_chunks_init());
+    auto bitmaps_c_ptr = bitmaps.c_ptr();
+    int32_t res = mtmd_tokenize(ctx_vision.get(),
+                                chunks.ptr.get(), // output
+                                &mtmd_text, // text
+                                bitmaps_c_ptr.data(),
+                                bitmaps_c_ptr.size());
+    if (res != 0) {
+        LOGe("mtmd Unable to tokenize prompt, res = %d\n", res);
+    }
+    LOGi("cpp: mtmd tokenized prompt, res = %d\n", res);
+
+    bitmaps.entries.clear(); // 清理图片
+    llama_pos new_n_past;
+    LOGi("cpp: cleared bitmaps");
+    // 提示词处理过程，图像计算完后的向量和文本向量融合
+    if (mtmd_helper_eval_chunks(ctx_vision.get(),   //
+                                context, // lctx
+                                chunks.ptr.get(), // chunks
+                                prev_tokens_len, // n_past
+                                0, // seq_id
+                                n_batch, // n_batch
+                                true, // logits_last  设置了logits_last会自动计算下一个字符logits，loop开始只需要采样
+                                &new_n_past)) {
+        LOGe("Unable to eval prompt\n");
+    }
+    LOGi("cpp: evaluated prompt");
+    // 本轮提示词长度，用于返回给loop，决定是否上下文过长超出设置的kv缓冲大小，停止输出用的（prompt和输出都在一个kv缓存）
+    int prompt_token_len = new_n_past - prev_tokens_len;
+    prev_tokens_len = new_n_past;
+    env->ReleaseStringUTFChars(jtext, text);
+    LOGi("cpp: prompt_token_len = %d", prompt_token_len);
+    return prompt_token_len;
 }
 
 extern "C"

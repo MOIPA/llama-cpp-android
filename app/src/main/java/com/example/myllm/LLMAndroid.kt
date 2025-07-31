@@ -39,7 +39,7 @@ class LLMAndroid() {
     private val nlen: Int = 512
 
     private external fun log_to_android()
-    private external fun load_model(filename: String,layers:Int=0): Long
+    private external fun load_model(filename: String,layers:Int=0,mmprojf:String,useGpu: Int=0): Long
     private external fun free_model(model: Long)
     private external fun new_context(model: Long): Long
     private external fun free_context(context: Long)
@@ -60,7 +60,14 @@ class LLMAndroid() {
     ): String
 
     private external fun system_info(): String
-
+    private external fun completion_init_vision(
+        context: Long,
+        batch: Long,
+        text: String,
+        formatChat: Boolean,
+        nLen: Int,
+        picf:String
+    ): Int
     private external fun completion_init(
         context: Long,
         batch: Long,
@@ -81,6 +88,12 @@ class LLMAndroid() {
 
     private external fun supply(resp: String,model:Long)
 
+    suspend fun sysinfo(): String {
+        return withContext(runLoop) {
+            system_info()
+        }
+    }
+
     suspend fun bench(pp: Int, tg: Int, pl: Int, nr: Int = 1): String {
         return withContext(runLoop) {
             when (val state = threadLocalState.get()) {
@@ -94,11 +107,11 @@ class LLMAndroid() {
         }
     }
 
-    suspend fun load(pathToModel: String,layers:Int=0) {
+    suspend fun load(pathToModel: String, layers: Int = 0, mmprojf: String,useGpu: Int=0) {
         withContext(runLoop) {
             when (threadLocalState.get()) {
                 is State.Idle -> {
-                    val model = load_model(pathToModel,layers)
+                    val model = load_model(pathToModel,layers,mmprojf,useGpu)
                     if (model == 0L)  throw IllegalStateException("load_model() failed")
 
                     val context = new_context(model)
@@ -118,10 +131,11 @@ class LLMAndroid() {
         }
     }
 
-    fun send(message: String, formatChat: Boolean = false): Flow<String> = flow {
+    fun send(message: String, formatChat: Boolean = false,picf:String): Flow<String> = flow {
         when (val state = threadLocalState.get()) {
             is State.Loaded -> {
-                val ncur = IntVar(completion_init(state.context, state.batch, message, formatChat, nlen))
+                val ncur = IntVar(completion_init_vision(state.context, state.batch, message, formatChat, nlen,picf))
+//                val ncur = IntVar(completion_init(state.context, state.batch, message, formatChat, nlen))
                 while (ncur.value <= nlen) {
                     val str = completion_loop(state.context, state.batch, state.sampler, nlen, ncur)
                     if (str == null) {
