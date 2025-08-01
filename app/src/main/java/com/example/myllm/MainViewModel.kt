@@ -13,12 +13,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val llmAndroid: LLMAndroid = LLMAndroid.instance()
     private val gpu_layers = 0
-    private val mmproj_use_gpu = 1
+    private val mmproj_use_gpu = 0
+    private val testPic = "300k.jpg"
 
     companion object {
         @JvmStatic
@@ -33,8 +36,59 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 //        load("Llama-3.2-1BQ4_0.gguf",gpu_layers)
 
         // 视觉测试
-        load("Qwen2.5-VL-3B-Q4_0.gguf", "mmpro-qwen2.5.gguf",gpu_layers)
+//        load("Qwen2.5-VL-3B-Q4_0.gguf", "mmpro-qwen2.5.gguf",gpu_layers)
+//        load("InternVL3-2B-Instruct-Q8_0.gguf", "mmproj-InternVL3-2B-Instruct-Q8_0.gguf",gpu_layers)
+//        load("SmolVLM2-500M-Video-Instruct-Q8_0.gguf", "mmproj-SmolVLM2-500M-Video-Instruct-Q8_0.gguf",gpu_layers)
+        load("gemma-3-4b-it-Q4_K_M.gguf", "mmproj-model-f16.gguf",gpu_layers)
+//        merge()
+    }
 
+    fun merge() {
+        viewModelScope.launch {
+
+        val appCtx = application.applicationContext
+        val outputFile = File(appCtx.filesDir, "gemma-3-4b-it-Q4_K_M.gguf")
+
+        if (outputFile.exists()) {
+            // 如果已经合并过，就不重复合并
+            return@launch
+        }
+
+        try {
+            val bufferSize = 8192
+            val buffer = ByteArray(bufferSize)
+
+            // 输出流
+            val out = FileOutputStream(outputFile)
+
+            // 按顺序合并三个文件
+            for (part in listOf("gemma_part_aa", "gemma_part_ab", "gemma_part_ac")) {
+                val filePart = File(appCtx.filesDir, part)
+                val partInputStream = FileInputStream(filePart)
+
+                var bytesRead: Int
+                while (partInputStream.read(buffer).also { bytesRead = it } != -1) {
+                    out.write(buffer, 0, bytesRead)
+                }
+
+                partInputStream.close()
+            }
+
+            out.flush()
+            out.close()
+
+            // 可选：合并完成后删除分片文件
+            // File(filesDir, "gemma_a").delete()
+            // File(filesDir, "gemma_b").delete()
+            // File(filesDir, "gemma_c").delete()
+
+            Log.i("merge","合并完成：$outputFile")
+
+        } catch (e: Exception) {
+            Log.i("merge","合并失败：$outputFile")
+            e.printStackTrace()
+        }
+        }
     }
 
     private val tag: String? = this::class.simpleName
@@ -61,13 +115,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // 加载前判断模型是否存在，不存在从assets拷贝
                 val appCtx = application.applicationContext
 
-                //测试代码，拷贝测试图片 pokemon.jpeg
-                val picf = File(appCtx.filesDir, "1.jpg")
+                //测试代码，拷贝测试图片 10k.jpeg
+                val picf = File(appCtx.filesDir, testPic)
                 if(!picf.exists()){
                     withContext(Dispatchers.Main) {
                         messages += "copying pic"
                     }
-                    appCtx.assets.open("testPic/1.jpg").use { inputStream ->
+                    appCtx.assets.open("testPic/$testPic").use { inputStream ->
                         picf.outputStream().use { outputStream ->
                             inputStream.copyTo(outputStream)
                         }
@@ -139,8 +193,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             // 测试代码，加载图片给消息生成 后期删除 @TODO
             val appCtx = application.applicationContext
-            val picf = File(appCtx.filesDir, "1.jpg")
-//            val picf = File(appCtx.filesDir, "pokemon.jpeg")
+//            val picf = File(appCtx.filesDir, "3m.jpg")
+            val picf = File(appCtx.filesDir, testPic)
             llmAndroid.send(text,true,picf.absolutePath).catch {
                 Log.e("MainViewModel", "Error sending message", it)
                 messages += it.message!!

@@ -438,7 +438,7 @@ Java_com_example_myllm_LLMAndroid_completion_1init_1vision(
     }
     // 测试代码，加载模型的时候也加载一张测试图片，测试是否能正常运行，后期删除
     auto picPath = env->GetStringUTFChars(picf, 0);
-    if(load_media(picPath)){
+    if(prev_tokens_len == 0 && load_media(picPath)){
         LOGi("pic %s loaded successfully",picPath);
     }
     env->ReleaseStringUTFChars(picf, picPath);
