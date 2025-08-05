@@ -131,7 +131,7 @@ class LLMAndroid() {
         }
     }
 
-    fun send(message: String, formatChat: Boolean = false,picf:String): Flow<String> = flow {
+    fun send(message: String, formatChat: Boolean = false,picf:String=""): Flow<String> = flow {
         when (val state = threadLocalState.get()) {
             is State.Loaded -> {
                 val ncur = IntVar(completion_init_vision(state.context, state.batch, message, formatChat, nlen,picf))

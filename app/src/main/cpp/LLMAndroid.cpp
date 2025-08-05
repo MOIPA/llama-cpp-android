@@ -410,15 +410,17 @@ Java_com_example_myllm_LLMAndroid_completion_1init_1vision(
     const auto text = env->GetStringUTFChars(jtext, 0);
     const auto context = reinterpret_cast<llama_context *>(context_pointer);
     const auto batch = reinterpret_cast<llama_batch *>(batch_pointer);
+    auto picPath = env->GetStringUTFChars(picf, 0);
     // chat历史记忆，会话预处理
     std::vector<char> formatted(llama_n_ctx(context));
     const auto model = llama_get_model(context);
     const llama_vocab * vocab = llama_model_get_vocab(model);
     const char * tmpl = llama_model_chat_template(model, /* name */ nullptr);
     std::string user_text(text);
-    if(prev_tokens_len==0)
-        user_text = mtmd_default_marker() + user_text; // 有图片的时候需要添加占位符
-
+    if(picPath!="" && load_media(picPath)){
+        LOGi("pic %s loaded successfully",picPath);
+        user_text = mtmd_default_marker() + user_text;
+    }
     messages.push_back({"user", strdup(user_text.c_str())}); // 添加用户会话
     int new_len = llama_chat_apply_template(tmpl, messages.data(), messages.size(), true, formatted.data(), formatted.size());
     if (new_len > (int)formatted.size()) {
@@ -436,13 +438,8 @@ Java_com_example_myllm_LLMAndroid_completion_1init_1vision(
         const char* content_to_log = msg_to_log.content ? msg_to_log.content : "[null content]";
         LOGi("  Msg %zu: Role: \"%s\", Content: \"%s\"", i, role_to_log, content_to_log);
     }
-    // 测试代码，加载模型的时候也加载一张测试图片，测试是否能正常运行，后期删除
-    auto picPath = env->GetStringUTFChars(picf, 0);
-    if(prev_tokens_len == 0 && load_media(picPath)){
-        LOGi("pic %s loaded successfully",picPath);
-    }
+
     env->ReleaseStringUTFChars(picf, picPath);
-//    prompt = mtmd_default_marker() + prompt;    // 这张图片加载后需要再prompt开头加上图片标记符号
     LOGi("prompt:%s",prompt.c_str());
     // 正常处理
     bool parse_special = (format_chat == JNI_TRUE);
