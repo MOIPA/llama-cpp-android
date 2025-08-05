@@ -229,6 +229,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun bench(pp: Int, tg: Int, pl: Int, nr: Int = 1) {
         viewModelScope.launch {
             try {
+                generating=true
                 val start = System.nanoTime()
                 val warmupResult = llmAndroid.bench(pp, tg, pl, nr)
                 val end = System.nanoTime()
@@ -240,9 +241,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
                 messages += llmAndroid.bench(pp, tg, pl, nr)
+                generating=false
             } catch (exc: IllegalStateException) {
                 Log.e(tag, "bench() failed", exc)
                 messages += exc.message!!
+                generating = false
             }
         }
     }

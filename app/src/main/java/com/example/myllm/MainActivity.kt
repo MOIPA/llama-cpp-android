@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -128,7 +129,7 @@ fun MainCompose(
     Column(
         modifier = modifier
             .fillMaxSize()
-//            .navigationBarsPadding()
+            .statusBarsPadding()
     ) {
         val scrollState = rememberLazyListState()
         LaunchedEffect(Unit) {
@@ -151,86 +152,91 @@ fun MainCompose(
         // 输入区始终在底部
         AnimatedVisibility(
             visible = true,
-            enter = fadeIn(animationSpec = tween(durationMillis = 1000)),
-            exit = fadeOut(animationSpec = tween(durationMillis = 1000))
+            enter = fadeIn(animationSpec = tween(durationMillis = 800)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 800))
         ) {
-            Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                if (viewModel.imagePath != "")
-                    ImageWithCloseButton(viewModel)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = viewModel.message,
-                        onValueChange = { viewModel.updateMessage(it) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(
-                                colorResource(R.color.white),
-                                shape = RoundedCornerShape(24.dp)
-                            ),
-                        shape = RoundedCornerShape(24.dp),
-                        placeholder = { Text("Message") },
-                        singleLine = true,
-                        leadingIcon = {
-                            IconButton(
-                                onClick = {
-                                    pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
-                                },
-                                enabled = !viewModel.generating,
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "Upload Image",
-                                    tint = colorResource(R.color.teal_700)
-                                )
-                            }
-                        },
-                        trailingIcon = {
-                            if (viewModel.message.isNotBlank()) {
-                                IconButton(
-                                    onClick = { viewModel.send() },
-                                    enabled = !viewModel.generating
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.Send,
-                                        contentDescription = "Send",
-                                        tint = colorResource(R.color.teal_200)
-                                    )
-                                }
-                            }
-                        },
-                        colors = TextFieldDefaults.colors(
-                            unfocusedIndicatorColor = Color(0xFFCCCCCC),
-                            focusedIndicatorColor = Color(0xFFCCCCCC),
-                            disabledIndicatorColor = Color(0xFFCCCCCC),
-                            errorIndicatorColor = Color.Red
-                        ),
-                        keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(
-                            onSend = {
-                                if (!viewModel.generating && viewModel.message.isNotBlank()) viewModel.send()
-                            }
-                        )
-                    )
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                ) {
-                    Button(
-                        onClick = { viewModel.bench(32, 32, 3) },
-                        enabled = !viewModel.generating,
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("Bench") }
-                }
-
-            }
+            inputArea(viewModel, pickMedia)
         }
+    }
+}
+
+@Composable
+fun inputArea(viewModel: MainViewModel,pickMedia: ActivityResultLauncher<PickVisualMediaRequest>){
+    Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+        if (viewModel.imagePath != "")
+            ImageWithCloseButton(viewModel)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = viewModel.message,
+                onValueChange = { viewModel.updateMessage(it) },
+                modifier = Modifier
+                    .weight(1f)
+                    .background(
+                        colorResource(R.color.white),
+                        shape = RoundedCornerShape(24.dp)
+                    ),
+                shape = RoundedCornerShape(24.dp),
+                placeholder = { Text("Message") },
+                singleLine = true,
+                leadingIcon = {
+                    IconButton(
+                        onClick = {
+                            pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+                        },
+                        enabled = !viewModel.generating,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Upload Image",
+                            tint = colorResource(R.color.teal_700)
+                        )
+                    }
+                },
+                trailingIcon = {
+                    if (viewModel.message.isNotBlank()) {
+                        IconButton(
+                            onClick = { viewModel.send() },
+                            enabled = !viewModel.generating
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Send",
+                                tint = colorResource(R.color.teal_200)
+                            )
+                        }
+                    }
+                },
+                colors = TextFieldDefaults.colors(
+                    unfocusedIndicatorColor = Color(0xFFCCCCCC),
+                    focusedIndicatorColor = Color(0xFFCCCCCC),
+                    disabledIndicatorColor = Color(0xFFCCCCCC),
+                    errorIndicatorColor = Color.Red
+                ),
+                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(
+                    onSend = {
+                        if (!viewModel.generating && viewModel.message.isNotBlank()) viewModel.send()
+                    }
+                )
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+        ) {
+            Button(
+                onClick = { viewModel.bench(32, 32, 3) },
+                enabled = !viewModel.generating,
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Bench") }
+        }
+
     }
 }
 
