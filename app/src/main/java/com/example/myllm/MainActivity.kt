@@ -134,18 +134,27 @@ fun MainCompose(
             label = { Text("Message") },
         )
         Row {
-            Button({ viewModel.send() }) { Text("Send") }
-            Button({ viewModel.bench(32, 32, 3) }) { Text("Bench") }
-            Button({ viewModel.clear() }) { Text("Clear") }
-            Button({
+            Button(
+                onClick = { viewModel.send() },
+                enabled = !viewModel.generating
+            ) { Text("Send") }
+            Button(
+                onClick = { viewModel.bench(32, 32, 3) },
+                enabled = !viewModel.generating
+            ) { Text("Bench") }
+            Button(
+                onClick = { viewModel.clear() },
+                enabled = !viewModel.generating
+            ) { Text("Clear") }
+            Button(onClick = {
                 viewModel.messages.joinToString("\n").let {
                     clipboard.setPrimaryClip(ClipData.newPlainText("", it))
                 }
-            }) { Text("Copy") }
+            }, enabled = !viewModel.generating) { Text("Copy") }
         }
-        Button({
+        Button(onClick = {
             pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
-        }) { Text("UploadImage") }
+        }, enabled = !viewModel.generating) { Text("UploadImage") }
     }
 }
 

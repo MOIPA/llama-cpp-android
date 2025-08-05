@@ -102,6 +102,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var imagePath by mutableStateOf("")
         private set
+    var generating by mutableStateOf(false)
 
     fun clearImage(){
         this.imagePath = ""
@@ -202,6 +203,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         messages += text
         if(imagePath!="")messages += "<ImagePath>$imagePath"
         messages += ""
+        generating=true
         viewModelScope.launch {
             val imagePathToSend = imagePath
             imagePath = ""
@@ -218,6 +220,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 //            Log.i("MainViewModel", "Sent message: ${messages.last()}")
             // 模型response添加到会话历史
             Log.i("send","生成结束")
+            generating = false
             llmAndroid.supplyMsg(messages.last())
         }
     }
