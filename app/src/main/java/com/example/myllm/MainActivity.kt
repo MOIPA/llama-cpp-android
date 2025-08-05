@@ -77,6 +77,15 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.ImeAction
 
 
 class MainActivity(
@@ -87,7 +96,9 @@ class MainActivity(
     private val viewModel by viewModels<MainViewModel>()
     private val activityManager by lazy { activityManager ?: getSystemService<ActivityManager>()!! }
     private val downloadManager by lazy { downloadManager ?: getSystemService<DownloadManager>()!! }
-    private val clipboardManager by lazy { clipboardManager ?: getSystemService<ClipboardManager>()!! }
+    private val clipboardManager by lazy {
+        clipboardManager ?: getSystemService<ClipboardManager>()!!
+    }
     private val pickMedia = registerForActivityResult(PickVisualMedia()) { uri ->
         if (uri != null) {
             viewModel.uploadImage(uri)
@@ -96,13 +107,20 @@ class MainActivity(
             Log.d("PhotoPicker", "No media selected")
         }
     }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             MyLLMTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    MainCompose(viewModel, clipboardManager, downloadManager,pickMedia, Modifier.padding(innerPadding))
+                    MainCompose(
+                        viewModel,
+                        clipboardManager,
+                        downloadManager,
+                        pickMedia,
+                        Modifier.padding(innerPadding)
+                    )
                 }
             }
         }
@@ -124,7 +142,9 @@ fun MainCompose(
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
     Column(
-        modifier = modifier.fillMaxSize().navigationBarsPadding() // 减少底部padding
+        modifier = modifier
+            .fillMaxSize()
+//            .navigationBarsPadding()
     ) {
         val scrollState = rememberLazyListState()
         LaunchedEffect(Unit) {
@@ -144,52 +164,98 @@ fun MainCompose(
                 }
             }
         }
-        if(viewModel.imagePath != "")
-            ImageWithCloseButton(viewModel)
-
+        // 输入区始终在底部
         AnimatedVisibility(
             visible = true,
             enter = fadeIn(animationSpec = tween(durationMillis = 1000)),
             exit = fadeOut(animationSpec = tween(durationMillis = 1000))
         ) {
-            Column(modifier = Modifier.padding()) {
-                OutlinedTextField(
-                    value = viewModel.message,
-                    onValueChange = { viewModel.updateMessage(it) },
-                    label = { Text("Message") },
-                )
-                Row {
-                    Button(
-                        onClick = { viewModel.send() },
-                        enabled = !viewModel.generating
-                    ) { Text("Send") }
+            Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                if (viewModel.imagePath != "")
+                    ImageWithCloseButton(viewModel)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = viewModel.message,
+                        onValueChange = { viewModel.updateMessage(it) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                colorResource(R.color.white),
+                                shape = RoundedCornerShape(24.dp)
+                            ),
+                        shape = RoundedCornerShape(24.dp),
+                        placeholder = { Text("Message") },
+                        singleLine = true,
+                        leadingIcon = {
+                            IconButton(
+                                onClick = {
+                                    pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+                                },
+                                enabled = !viewModel.generating,
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Upload Image",
+                                    tint = colorResource(R.color.teal_700)
+                                )
+                            }
+                        },
+                        trailingIcon = {
+                            if (viewModel.message.isNotBlank()) {
+                                IconButton(
+                                    onClick = { viewModel.send() },
+                                    enabled = !viewModel.generating
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.Send,
+                                        contentDescription = "Send",
+                                        tint = colorResource(R.color.teal_200)
+                                    )
+                                }
+                            }
+                        },
+                        colors = TextFieldDefaults.colors(
+                            unfocusedIndicatorColor = Color(0xFFCCCCCC),
+                            focusedIndicatorColor = Color(0xFFCCCCCC),
+                            disabledIndicatorColor = Color(0xFFCCCCCC),
+                            errorIndicatorColor = Color.Red
+                        ),
+                        keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(
+                            onSend = {
+                                if (!viewModel.generating && viewModel.message.isNotBlank()) viewModel.send()
+                            }
+                        )
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                ) {
                     Button(
                         onClick = { viewModel.bench(32, 32, 3) },
-                        enabled = !viewModel.generating
+                        enabled = !viewModel.generating,
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) { Text("Bench") }
-                    Button(
-                        onClick = { viewModel.clear() },
-                        enabled = !viewModel.generating
-                    ) { Text("Clear") }
-                    Button(onClick = {
-                        viewModel.messages.joinToString("\n").let {
-                            clipboard.setPrimaryClip(ClipData.newPlainText("", it))
-                        }
-                    }, enabled = !viewModel.generating) { Text("Copy") }
                 }
-                Button(onClick = {
-                    pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
-                }, enabled = !viewModel.generating) { Text("UploadImage") }
+
             }
         }
     }
 }
 
 @Composable
-fun ImageWithCloseButton(viewModel: MainViewModel){
+fun ImageWithCloseButton(viewModel: MainViewModel) {
     Box(
-        modifier = Modifier.size(150.dp)
-            .background(colorResource(R.color.teal_700),shape= RoundedCornerShape(15.dp))
+        modifier = Modifier
+            .size(150.dp)
+            .background(colorResource(R.color.teal_700), shape = RoundedCornerShape(15.dp))
 //            .clip(RoundedCornerShape(25.dp))
             .padding(10.dp),
         contentAlignment = Alignment.TopEnd,
@@ -206,10 +272,11 @@ fun ImageWithCloseButton(viewModel: MainViewModel){
             placeholder = painterResource(R.drawable.loading_img),
         )
         IconButton(
-            onClick = {viewModel.clearImage()},
+            onClick = { viewModel.clearImage() },
             modifier = Modifier
                 .background(colorResource(R.color.white), shape = CircleShape)
-                .padding(3.dp).size(15.dp)
+                .padding(3.dp)
+                .size(15.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.Close,
@@ -219,8 +286,9 @@ fun ImageWithCloseButton(viewModel: MainViewModel){
         }
     }
 }
+
 @Preview(showBackground = true)
 @Composable
-fun preview(){
+fun preview() {
 //    ImageWithCloseButton()
 }
