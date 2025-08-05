@@ -199,7 +199,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun send() {
         val text = message
         message = "";
-        messages += "$text <ImagePath>$imagePath";
+        messages += text
+        if(imagePath!="")messages += "<ImagePath>$imagePath"
         messages += ""
         viewModelScope.launch {
             val imagePathToSend = imagePath

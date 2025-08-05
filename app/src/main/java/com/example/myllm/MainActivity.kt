@@ -54,8 +54,13 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.myllm.ui.theme.MyLLMTheme
 import androidx.compose.material3.MaterialTheme.colorScheme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.colorResource
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlin.getValue
 
 
@@ -104,7 +109,12 @@ fun MainCompose(
             .imePadding()
     ) {
         val scrollState = rememberLazyListState()
-
+        LaunchedEffect(Unit) {
+            snapshotFlow { viewModel.messages }
+                .onEach {
+                    scrollState.animateScrollToItem(index = viewModel.messages.size - 1)
+                }.launchIn(this)
+        }
         Box(modifier = Modifier.weight(1f)) {
             LazyColumn(state = scrollState) {
                 items(viewModel.messages) {
