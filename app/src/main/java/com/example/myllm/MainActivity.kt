@@ -62,6 +62,21 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlin.getValue
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.tween
 
 
 class MainActivity(
@@ -104,9 +119,12 @@ fun MainCompose(
 //    models: List<Downloadable>
     modifier: Modifier = Modifier
 ) {
+    // 输入区在软键盘弹出时有动画
+
+    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+
     Column(
-        modifier = modifier.fillMaxSize().navigationBarsPadding()
-            .imePadding()
+        modifier = modifier.fillMaxSize().navigationBarsPadding() // 减少底部padding
     ) {
         val scrollState = rememberLazyListState()
         LaunchedEffect(Unit) {
@@ -128,33 +146,42 @@ fun MainCompose(
         }
         if(viewModel.imagePath != "")
             ImageWithCloseButton(viewModel)
-        OutlinedTextField(
-            value = viewModel.message,
-            onValueChange = { viewModel.updateMessage(it) },
-            label = { Text("Message") },
-        )
-        Row {
-            Button(
-                onClick = { viewModel.send() },
-                enabled = !viewModel.generating
-            ) { Text("Send") }
-            Button(
-                onClick = { viewModel.bench(32, 32, 3) },
-                enabled = !viewModel.generating
-            ) { Text("Bench") }
-            Button(
-                onClick = { viewModel.clear() },
-                enabled = !viewModel.generating
-            ) { Text("Clear") }
-            Button(onClick = {
-                viewModel.messages.joinToString("\n").let {
-                    clipboard.setPrimaryClip(ClipData.newPlainText("", it))
+
+        AnimatedVisibility(
+            visible = true,
+            enter = fadeIn(animationSpec = tween(durationMillis = 1000)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 1000))
+        ) {
+            Column(modifier = Modifier.padding()) {
+                OutlinedTextField(
+                    value = viewModel.message,
+                    onValueChange = { viewModel.updateMessage(it) },
+                    label = { Text("Message") },
+                )
+                Row {
+                    Button(
+                        onClick = { viewModel.send() },
+                        enabled = !viewModel.generating
+                    ) { Text("Send") }
+                    Button(
+                        onClick = { viewModel.bench(32, 32, 3) },
+                        enabled = !viewModel.generating
+                    ) { Text("Bench") }
+                    Button(
+                        onClick = { viewModel.clear() },
+                        enabled = !viewModel.generating
+                    ) { Text("Clear") }
+                    Button(onClick = {
+                        viewModel.messages.joinToString("\n").let {
+                            clipboard.setPrimaryClip(ClipData.newPlainText("", it))
+                        }
+                    }, enabled = !viewModel.generating) { Text("Copy") }
                 }
-            }, enabled = !viewModel.generating) { Text("Copy") }
+                Button(onClick = {
+                    pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
+                }, enabled = !viewModel.generating) { Text("UploadImage") }
+            }
         }
-        Button(onClick = {
-            pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly))
-        }, enabled = !viewModel.generating) { Text("UploadImage") }
     }
 }
 
