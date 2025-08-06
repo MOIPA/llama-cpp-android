@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
+apply(plugin = "kotlin-kapt")
 
 android {
     namespace = "com.example.myllm"
@@ -21,6 +22,11 @@ android {
         externalNativeBuild {
             cmake {
                 arguments.add("-DANDROID_STL=c++_shared")
+            }
+        }
+        javaCompileOptions {
+            annotationProcessorOptions {
+                arguments += mapOf("AROUTER_MODULE_NAME" to project.name)
             }
         }
     }
@@ -54,6 +60,8 @@ android {
 
 dependencies {
     implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation(libs.arouter.api)
+    add("kapt", libs.arouter.compiler)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
