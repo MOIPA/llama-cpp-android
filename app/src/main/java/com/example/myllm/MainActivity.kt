@@ -72,6 +72,8 @@ import coil.request.ImageRequest
 import com.example.myllm.ui.theme.MyLLMTheme
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+//import com.alibaba.android.arouter.BuildConfig
+//import com.alibaba.android.arouter.launcher.ARouter
 
 class MainActivity(
     activityManager: ActivityManager? = null,
@@ -107,6 +109,8 @@ class MainActivity(
                         Modifier.padding(innerPadding)
                     )
                 }
+                // 3. 路由跳转示例（可放在按钮点击事件里）
+                // ARouter.getInstance().build("/test/activity").navigation()
             }
         }
     }
