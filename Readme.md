@@ -6,6 +6,18 @@
 
 少数设备（snapdragon 8gen3 & elite）支持openCL，已开启openCL支持，具体offload层数需要根据模型实际确定
 
+# DemoLLM
+
+本体用jetPackCompose做的很多版本不适配，DemoLLM是适配老版本项目的无compose模块，美化了界面，增加了模型选择，更详细的baseModel和mmproj的日志包含：
+
++ 图片上传
++ 多模态支持
++ Benchmark
++ 模型选择
++ kv历史管理
++ 内置提示词模版
++ 模型下载（开发中）
+
 # GPU-openCL
 
 jniLibs/arm64-v8a/cpu 该目录下的是基于NDK的纯cpu版本的链接库，上级目录下的是支持openCL的链接库，支持 OpenCL backend
