@@ -130,7 +130,7 @@ class LLMAndroid(): DemoLLMInterface {
                     val sampler = new_sampler()
                     if (sampler == 0L) throw IllegalStateException("new_sampler() failed")
 
-                    Log.i(tag, "Loaded model $pathToModel")
+                    Log.i("MainViewModel", "Loaded model $pathToModel")
                     threadLocalState.set(State.Loaded(model, context, batch, sampler))
                 }
                 else -> throw IllegalStateException("Model already loaded")
@@ -191,9 +191,10 @@ class LLMAndroid(): DemoLLMInterface {
                     free_context(state.context)
                     free_model(state.model)
                     free_batch(state.batch)
-                    free_sampler(state.sampler);
+                    free_sampler(state.sampler)
 
                     threadLocalState.set(State.Idle)
+                    Log.i("MainViewModel","Model Unloaded")
                 }
                 else -> {}
             }

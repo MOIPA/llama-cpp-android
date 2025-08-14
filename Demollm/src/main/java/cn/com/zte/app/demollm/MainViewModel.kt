@@ -36,8 +36,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _imagePath = MutableLiveData("")
     val imagePath: LiveData<String> = _imagePath
 
-    private val _generating = MutableLiveData(false)
+    private val _generating = MutableLiveData(true)
     val generating: LiveData<Boolean> = _generating
+
 
     private var internalMessage: String = ""
     private var initializingJob: Job? = null
@@ -55,7 +56,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
         viewModelScope.launch {
             llmAndroid.unload()
+            delay(200)
             load(baseModelName, mmprojName, gpu_layers)
+            delay(200)
         }
     }
 
@@ -79,6 +82,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _generating.postValue(true)
 
             val animationJob = launch {
+                delay(500)
                 var dots = 0
                 while(true){
                     var text = "initializing model"+".".repeat(dots%7)
@@ -211,6 +215,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 _generating.postValue(true)
+                addMessage("Benching",MessageType.MODEL)
                 val start = System.nanoTime()
                 val warmupResult = llmAndroid.bench(pp, tg, pl, nr)
                 val end = System.nanoTime()
