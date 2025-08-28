@@ -76,6 +76,7 @@ dependencies {
     kapt deps.arouter.compiler
     implementation project(path: ':ZTEBase')
     implementation project(path: ':ZTEBaseFlavor')
+    implementation project(path: ':ModuleCalendar:CalendarTableAndBean')
 
     implementation 'androidx.core:core-ktx:1.9.0'
     implementation 'androidx.appcompat:appcompat:1.4.1'

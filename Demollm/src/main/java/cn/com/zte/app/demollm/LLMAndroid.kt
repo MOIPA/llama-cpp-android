@@ -44,10 +44,16 @@ class LLMAndroid(): DemoLLMInterface {
         }
     }.asCoroutineDispatcher()
 
-    private val nlen: Int = 512
+    private val nlen: Int = 4096
 
     private external fun log_to_android()
-    private external fun load_model(filename: String,layers:Int=0,mmprojf:String,useGpu: Int=0): Long
+    private external fun load_model(
+        filename: String,
+        layers: Int = 0,
+        mmprojf: String,
+        useGpu: Int = 0,
+        isMultiModal:Boolean
+    ): Long
     private external fun free_model(model: Long)
     private external fun new_context(model: Long): Long
     private external fun free_context(context: Long)
@@ -55,7 +61,13 @@ class LLMAndroid(): DemoLLMInterface {
     private external fun backend_free()
     private external fun new_batch(nTokens: Int, embd: Int, nSeqMax: Int): Long
     private external fun free_batch(batch: Long)
-    private external fun new_sampler(): Long
+    private external fun new_sampler(isGreedy: Boolean=false,
+        minPP: Int=0,
+        minPMinKeep: Int=1,
+        temp: Float=0.6f,
+        topK: Int=20,
+        topPP: Float=0.95f,
+        topPMinKeep: Int=1): Long
     private external fun free_sampler(sampler: Long)
     private external fun bench_model(
         context: Long,
@@ -95,6 +107,8 @@ class LLMAndroid(): DemoLLMInterface {
 
     private external fun supply(resp: String,model:Long)
 
+    private external fun set_system_prompt(prompt: String)
+    private external fun init_system_prompt(context_pointer: Long, model_pointer: Long)
     override suspend fun sysinfo(): String {
         return withContext(runLoop) {
             system_info()
@@ -114,11 +128,12 @@ class LLMAndroid(): DemoLLMInterface {
         }
     }
 
-    override suspend fun load(pathToModel: String, layers: Int, mmprojf: String, useGpu: Int) {
+    override suspend fun load(pathToModel: String, layers: Int, mmprojf: String, useGpu: Int,isMultiModal: Boolean,
+                              isGreedy: Boolean,minPP:Int,minPMinKeep:Int,temp:Float,topK:Int,topPP:Float,topPMinKeep:Int) {
         withContext(runLoop) {
             when (threadLocalState.get()) {
                 is State.Idle -> {
-                    val model = load_model(pathToModel,layers,mmprojf,useGpu)
+                    val model = load_model(pathToModel,layers,mmprojf,useGpu,isMultiModal) // 默认值
                     if (model == 0L)  throw IllegalStateException("load_model() failed")
 
                     val context = new_context(model)
@@ -127,7 +142,7 @@ class LLMAndroid(): DemoLLMInterface {
                     val batch = new_batch(512, 0, 1)
                     if (batch == 0L) throw IllegalStateException("new_batch() failed")
 
-                    val sampler = new_sampler()
+                    val sampler = new_sampler(isGreedy,minPP,minPMinKeep,temp,topK,topPP,topPMinKeep)
                     if (sampler == 0L) throw IllegalStateException("new_sampler() failed")
 
                     Log.i("MainViewModel", "Loaded model $pathToModel")
@@ -147,11 +162,13 @@ class LLMAndroid(): DemoLLMInterface {
         }
     }
 
-    override fun send(message: String, formatChat: Boolean, picf:String): Flow<String> = flow {
+    override fun send(message: String, formatChat: Boolean, picf:String,isMultiModal: Boolean): Flow<String> = flow {
         when (val state = threadLocalState.get()) {
             is State.Loaded -> {
-                var ncur = completion_init_vision(state.context, state.batch, message, formatChat, nlen,picf)
-//                val ncur = IntVar(completion_init(state.context, state.batch, message, formatChat, nlen))
+                var ncur = when(isMultiModal){
+                    true -> completion_init_vision(state.context, state.batch, message, formatChat, nlen,picf)
+                    false -> completion_init(state.context, state.batch, message, formatChat, nlen)
+                }
                 while (ncur <= nlen) {
                     ncur++
                     val str = completion_loop(state.context, state.batch, state.sampler, nlen)
@@ -175,6 +192,24 @@ class LLMAndroid(): DemoLLMInterface {
                     supply(resp, state.model)
                 }
                 else -> throw IllegalStateException("No model loaded failed to supply msg")
+            }
+        }
+    }
+
+    suspend fun setSystemPrompt(prompt: String) {
+        withContext(runLoop) {
+            set_system_prompt(prompt)
+        }
+    }
+
+    suspend fun initSystemPrompt() {
+        withContext(runLoop) {
+            when (val state = threadLocalState.get()) {
+                is State.Loaded -> {
+                    init_system_prompt(state.context, state.model)
+                    Log.i("MainViewModel","init_system_prompt")
+                }
+                else -> {}
             }
         }
     }
