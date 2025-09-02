@@ -6,6 +6,21 @@
 
 少数设备（snapdragon 8gen3 & elite）支持openCL，已开启openCL支持，具体offload层数需要根据模型实际确定
 
+# 任务
+
+1. 模型加速推理
+2. 多模态（视觉）支持
+3. MCP接口支持
+4. 微调模型增加效率
+
+MCP接口调用示例：
+
+![alt text](Screenrecorder-20250822-163256.gif)
+
+多模态示例：
+
+![alt text](cn_multi.gif)
+
 # DemoLLM
 
 本体用jetPackCompose做的很多版本不适配，DemoLLM是适配老版本项目的无compose模块，美化了界面，增加了模型选择，更详细的baseModel和mmproj的日志包含：
