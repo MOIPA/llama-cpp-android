@@ -14,12 +14,12 @@ class CreateCalendarEventTool : ITool {
     override val definition = """
     {
       "tool_name": "create_calendar_event",
-      "tool_description": "创建一个新的日历事件、会议或待办事项。",
+      "tool_description": "Create a new calendar event, meeting, or to-do item.",
       "arguments": {
         "type": "json object",
         "properties": {
-          "title": { "type": "string", "description": "事件的主题或标题" },
-          "start_time": { "type": "string", "description": "事件的开始时间，可以是一个模糊的时间描述，例如 '明天下午2点'" }
+          "title": { "type": "string", "description": "title or theme of the event/meeting" },
+          "start_time": { "type": "string", "description": "start time of the event。if the user does not provide then ignore this parameter because the create calendar menu will let user choose the time info" }
         },
         "required": ["title"]
       }
@@ -43,7 +43,7 @@ class CreateCalendarEventTool : ITool {
                 return ToolResult(false, "失败：无法获取有效的用户信息")
             }
             
-            val startTimeDescription = arguments.get("start_time")?.asString ?: ""
+            val startTimeDescription = arguments.get("start_time")?.asString ?: "今天"
             val eventContent = "由智能助手创建。用户描述的开始时间: $startTimeDescription"
 
             val currentUserContact = CalRequestContactBisModel(

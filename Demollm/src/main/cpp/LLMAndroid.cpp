@@ -153,7 +153,7 @@ Java_cn_com_zte_app_demollm_LLMAndroid_load_1model(JNIEnv *env, jobject, jstring
     model_params.n_gpu_layers = layers;// 尝试将前 k 层卸载到 GPU (OpenCL)
 
     auto path_to_model = env->GetStringUTFChars(filename, 0);
-    LOGi("Loading model from %s", path_to_model);
+    LOGi("Loading model from %s , is multi modality enabled %d", path_to_model,isMultiModal);
 
     auto model = llama_model_load_from_file(path_to_model, model_params);
     env->ReleaseStringUTFChars(filename, path_to_model);
@@ -163,13 +163,15 @@ Java_cn_com_zte_app_demollm_LLMAndroid_load_1model(JNIEnv *env, jobject, jstring
         env->ThrowNew(env->FindClass("java/lang/IllegalStateException"), "load_model() failed");
         return 0;
     }
-
     // 加载视觉模型
     if(isMultiModal){
         auto mmprojPath = env->GetStringUTFChars(mmprojf, 0);
+        LOGi("loading vision model:%s",mmprojPath);
         init_vision_context(mmprojPath, useGPU, model, 0);
         env->ReleaseStringUTFChars(mmprojf, mmprojPath);
-        LOGi("load vision model");
+        LOGi("loaded vision model:%s",mmprojPath);
+    }else{
+        LOGi("vision model is not loaded");
     }
 
     return reinterpret_cast<jlong>(model);

@@ -23,22 +23,19 @@ class GetCalendarEventsTool : ITool {
     override val definition = """
     {
       "tool_name": "get_calendar_events",
-      "tool_description": "查询指定日期的日程、会议或待办事项列表。",
+      "tool_description": "Query the list of schedules, meetings, or to-do items for a specified date no matter whether if user provide the date info.",
       "arguments": {
         "type": "json object",
         "properties": {
-          "date": { "type": "string", "description": "要查询的日期，格式为 YYYY-MM-DD" }
-        },
-        "required": ["date"]
+          "date": { "type": "string", "description": "The date to query. If the user does not provide it, this parameter should be ignored." }
+        }
       }
     }
     """.trimIndent()
 
     override fun execute(context: Context, arguments: JsonObject): ToolResult {
-        val date = arguments.get("date")?.asString
-        if (date.isNullOrBlank()) {
-            return ToolResult(false, "参数错误: 日期参数 'date' 不能为空.")
-        }
+//        val date = arguments.get("date")?.asString ?: SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
         return try {
             Log.d(AGENT_LOG_TAG, "Executing get_calendar_events for date: $date")

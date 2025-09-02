@@ -34,6 +34,7 @@ class DemoLLMActivity : BaseActivity() {
 
     private val models = mapOf(
         "gemma-3-270m" to "",   // 纯文本模型，不支持多模态
+        "sft-270m-v1.0" to "",   // 纯文本模型，不支持多模态
         "SmolVLM2-500M-Video" to "mmproj-SmolVLM2-500M-Video-Instruct-Q8_0.gguf",
         "InternVL3-2B" to "mmproj-InternVL3-2B-Instruct-Q8_0.gguf",
         "Qwen3-0.6B" to "",   // 纯文本模型，不支持多模态
@@ -104,9 +105,10 @@ class DemoLLMActivity : BaseActivity() {
         binding.benchButton.setOnClickListener { viewModel.bench(32, 32, 3) }
         binding.clearImageButton.setOnClickListener { viewModel.clearImage() }
         binding.clearButton.setOnClickListener { viewModel.clearHistoryAndKV() }
-        binding.createEventButton.setOnClickListener { createTestEvent() }
-        binding.deleteEventButton.setOnClickListener { Log.d("CalendarTest", "Delete Event button clicked.") }
-        binding.viewEventsButton.setOnClickListener { viewTodayEvents() }
+        binding.initSysPromptButton.setOnClickListener { viewModel.triggerInitSystemPrompt() }
+//        binding.createEventButton.setOnClickListener { createTestEvent() }
+//        binding.deleteEventButton.setOnClickListener { Log.d("CalendarTest", "Delete Event button clicked.") }
+//        binding.viewEventsButton.setOnClickListener { viewTodayEvents() }
     }
 
     private fun observeViewModel() {
