@@ -44,7 +44,7 @@ jniLibs/arm64-v8a/cpu 该目录下的是基于NDK的纯cpu版本的链接库，�
 + 型号: 努比亚Z60 Ultra
 + SOC: 骁龙8Gen3 3.3GHZ 
 + GPU: 高通 Adreno 750
-+ OS驱动: openCL
++ OS驱动: OpenCL 3.0 QUALCOMM build
 + Layers: 28
 + Mutimodal: OFF
 
@@ -112,17 +112,55 @@ jniLibs/arm64-v8a/cpu 该目录下的是基于NDK的纯cpu版本的链接库，�
 
 # 多模态
 
+
+### 环境
+
++ 型号: 努比亚Z60 Ultra
++ SOC: 骁龙8Gen3 3.3GHZ 
++ GPU: 高通 Adreno 750
++ OS驱动: OpenCL 3.0 QUALCOMM build
++ Layers: 28
++ Mutimodal: OFF
+
 llama.cpp相关开发文档太少了，只能看源码，且api较为混乱多样，基于`mtmd-cli`的源码内容修改`completion-init`
 
 原生Api的一些使用特性和注意事项在代码里标注了
 
-## 使用体验
+### 测试样例
 
-尝试了不同尺寸的一些模型，差异较大。
+![alt text](d6a8dc79-092b-41d2-a5f0-9dff6bb6f63c.jpeg)
 
-测试了在CPU(baseModel+mmprojModel) 下，不同尺寸图片的推理速度差异和结果体验
+样例
 
-| model name    | quantization | model size   | mmproj size | picture(10k) | picture(100k) | picture(300k) | picture(3M) | feeling           |
+![alt text](2bf0e144-2fce-487d-a9af-748159a62ec3.gif)
+
+![alt text](876451e4-c920-4f3e-8147-4c633a6741ed.gif)
+
+### 存在的问题     
+
+#### 1. 多模态小模型历史任务记忆会影响当前任务 + 不同提示词极大影响识别效果
+
+![alt text](ead0c029-d002-42cc-9674-0aa5e05690d8.jpeg)
+
+
+#### 2. 不同采样器设置下效果差异极大
+
+|采样器设置|样例|
+|----|----|
+|MinP：（0，1）Temp：0.6 TopK：20 TopP：（0.95f，1）|![alt text](ba85fffd-db22-4a12-a86a-2b0423a10adb.png)|
+|Greedy|![alt text](d5b8041c-aeab-49b4-8240-74e9a33fb0a7.jpeg)|
+
+#### 3. 多次提问模型根据历史记忆可获取更多信息，但是多次之后模型有一定概率出现幻觉
+
+![alt text](050d7d1f-cd7c-4ff5-a5ab-5e489dce6653.png) ![alt text](19abea31-4f5b-49ae-95d2-bf7c99a8aa6e.png)
+
+
+### 使用体验
+
+
+不同尺寸图片的推理速度差异和结果体验
+
+| model name    | quantization | model size   | mmproj size | picture(10k) | picture(100k) | picture(300k) | picture(3M) | summary           |
 |---------------|--------------|--------------|-------------|--------------|---------------|---------------|-------------|-------------------|
 | SmolVLM2-500M | Q8_0         | 0.4B (0.41G) | 103M        | 1.47s        | 1.48s         | 1.41s         | 1.43s       | 英文效果不错但无中文支持      |
 | InternVL3-2B  | Q8_0         | 1.78B (1.8G) | 321M        | 7.39s        | 7.28s         | 6.43s         | 7.61s       | 可用，能满足大部分非专业场景    |
@@ -131,6 +169,16 @@ llama.cpp相关开发文档太少了，只能看源码，且api较为混乱多�
 
 
 模型参数变大，消耗推理时间和计算资源也指数上升，实际体验感觉`InternVL3-2B`足够用了
+
+### 总结
+
+1. OpenCL 目前只支持 f32、f16、q6_K 和 q4_0，特别对于Qwen系列模型，它的 q4_K 和 q5_K 张量需要在 CPU 上运行，也不支持 MoE 模型，所有张量仍会存储在CPU中。
+2. 骁龙8gen3 量化q4_0，实际在openCL后端下测试的性能随着offload到GPU的层数变多，性能更差且设备更容易发烫触发热节流。
+3. 多模态超过2B的稍大模型识别速度较慢，适合小图片识别
+4. 多模态1.5B左右的模型图形识别能力足够满足非专业领域下大多数场景的主体物体识别功能
+5. 多模态kv记忆严重影响当前视觉任务，但是失去记忆无法后续根据视觉任务继续提问
+6. 多模态任务需要针对不同模型设置最佳提示词和采样器
+
 
 # 注意
 
