@@ -21,6 +21,9 @@
 
 ![alt text](pics/cn_multi.gif)
 
+Agent/Mcp示例
+
+![alt text](pics/overview.gif)
 
 ### DemoLLM项目内容
 
@@ -248,8 +251,6 @@ CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 
 
 + client和server接口开发
 + 提示词，工具描述
-
-示例：
 
 ![alt text](pics/overview.gif)
 
