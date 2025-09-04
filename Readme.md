@@ -19,7 +19,7 @@
 
 多模态示例：
 
-![alt text](cn_multi.gif)
+![alt text](pics/cn_multi.gif)
 
 
 ### DemoLLM项目内容
@@ -142,31 +142,32 @@ llama.cpp相关开发文档太少了，只能看源码，且api较为混乱多�
 
 ### 测试样例
 
-![alt text](d6a8dc79-092b-41d2-a5f0-9dff6bb6f63c.jpeg)
+<img src="pics/d6a8dc79-092b-41d2-a5f0-9dff6bb6f63c.jpeg" alt="alt text" width="200" >
 
 样例
 
-![alt text](2bf0e144-2fce-487d-a9af-748159a62ec3.gif)
+![alt text](pics/2bf0e144-2fce-487d-a9af-748159a62ec3.gif)
 
-![alt text](876451e4-c920-4f3e-8147-4c633a6741ed.gif)
+![alt text](pics/876451e4-c920-4f3e-8147-4c633a6741ed.gif)
 
 ### 存在的问题     
 
 #### 1. 多模态小模型历史任务记忆会影响当前任务 + 不同提示词极大影响识别效果
 
-![alt text](ead0c029-d002-42cc-9674-0aa5e05690d8.jpeg)
+<img src="pics/ead0c029-d002-42cc-9674-0aa5e05690d8.jpeg" alt="alt text" width="200" >
 
 
 #### 2. 不同采样器设置下效果差异极大
 
 |采样器设置|样例|
 |----|----|
-|MinP：（0，1）Temp：0.6 TopK：20 TopP：（0.95f，1）|![alt text](ba85fffd-db22-4a12-a86a-2b0423a10adb.png)|
-|Greedy|![alt text](d5b8041c-aeab-49b4-8240-74e9a33fb0a7.jpeg)|
+|MinP：（0，1）Temp：0.6 TopK：20 TopP：（0.95f，1）|<img src="pics/ba85fffd-db22-4a12-a86a-2b0423a10adb.png" alt="alt text" width="200" >|
+|Greedy|<img src="pics/d5b8041c-aeab-49b4-8240-74e9a33fb0a7.jpeg" alt="alt text" width="200" >|
 
 #### 3. 多次提问模型根据历史记忆可获取更多信息，但是多次之后模型有一定概率出现幻觉
 
-![alt text](050d7d1f-cd7c-4ff5-a5ab-5e489dce6653.png) ![alt text](19abea31-4f5b-49ae-95d2-bf7c99a8aa6e.png)
+<img src="pics/050d7d1f-cd7c-4ff5-a5ab-5e489dce6653.png" alt="alt text" width="210" >
+<img src="pics/19abea31-4f5b-49ae-95d2-bf7c99a8aa6e.png" alt="alt text" width="200" >
 
 
 ### 使用体验
@@ -250,7 +251,7 @@ CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 
 
 示例：
 
-![alt text](overview.gif)
+![alt text](pics/overview.gif)
 
 ### 环境
 
@@ -359,9 +360,9 @@ You are a capable AI assistant. Your task is to determine the
 |----|-----|-----|-----|
 |Gemma3-270m|Q8_0|效果和执行差，通常调用命令无法解析|/|
 |SmolVLM2-500M|Q8_0|效果和执行差，通常调用命令无法解析|/|
-|InternVL3-2B|Q8_0|概率命令执行失败，模型容易出现复读和幻觉|![alt text](24c9e9f0-a543-4d65-94b8-df49951c6a51.gif)|
-|Qwen3-0.6B|Q8_0|概率执行失败，模型过小，存在输出中断的问题，在正常思考流程中概率输出EOS|![alt text](880c2ebf-c471-4cc9-a612-efa698cc96b8.gif)|
-|Qwen3-1.7B|Q4_0|测试过程中未出现过失败，但是思考耗时较长|![alt text](722c2d37-5d47-488a-b8db-acf4beaaba6f.gif)|
+|InternVL3-2B|Q8_0|概率命令执行失败，模型容易出现复读和幻觉|![alt text](pics/24c9e9f0-a543-4d65-94b8-df49951c6a51.gif)|
+|Qwen3-0.6B|Q8_0|概率执行失败，模型过小，存在输出中断的问题，在正常思考流程中概率输出EOS|![alt text](pics/880c2ebf-c471-4cc9-a612-efa698cc96b8.gif)|
+|Qwen3-1.7B|Q4_0|测试过程中未出现过失败，但是思考耗时较长|![alt text](pics/722c2d37-5d47-488a-b8db-acf4beaaba6f.gif)|
 
 
 处理性能
