@@ -19,11 +19,12 @@
 
 多模态示例：
 
-![alt text](pics/cn_multi.gif)
+<img src="pics/cn_multi.gif" alt="alt text" width="250" >
 
 Agent/Mcp示例
 
-![alt text](pics/overview.gif)
+<img src="pics/overview.gif" alt="alt text" width="250" >
+
 
 ### DemoLLM项目内容
 
@@ -395,17 +396,20 @@ base模型：Gemma3-270m-it
 |Gemma3-270m|accuracy         0.100000 <br> macro avg        0.017212 <br>weighted avg     0.020482  |accuracy         0.160000<br>macro avg        0.168695  <br> weighted avg     0.167199 |accuracy         0.290000 <br> macro avg        0.263372 <br> weighted avg     0.251346 |accuracy         0.250000 <br>macro avg        0.213632 <br> weighted avg     0.208413 |accuracy         0.250000  <br> macro avg        0.215873  <br> weighted avg     0.211222  |
 
 基本配置：
-    TRAIN_BATCH_SIZE = 16
-    EVAL_BATCH_SIZE = 24
-    GRAD_ACCUMULATION_STEPS = 2
-    NUM_TRAIN_EPOCHS = 3
-    LEARNING_RATE = 2e-4
+
++ TRAIN_BATCH_SIZE = 16
++ EVAL_BATCH_SIZE = 24
++ GRAD_ACCUMULATION_STEPS = 2
++ NUM_TRAIN_EPOCHS = 3
++ LEARNING_RATE = 2e-4
+
 Lora配置
-    LORA_R = 8
-    LORA_ALPHA = 16
-    LORA_TARGET_MODULES = ["q_proj", "v_proj"]
-    LORA_DROPOUT = 0.1
-结果
+
++  LORA_R = 8
++  LORA_ALPHA = 16
++  LORA_TARGET_MODULES = ["q_proj", "v_proj"]
++  LORA_DROPOUT = 0.1
+
 
 
 ### MCP/本地工具调用
