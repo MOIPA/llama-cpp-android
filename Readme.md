@@ -166,6 +166,7 @@ jniLibs/arm64-v8a/cpu 该目录下的是基于NDK的纯cpu版本的链接库，�
 
 2. `即使是q4_0`，实际在 `openCL` 后端下测试的性能随着 `offload` 到 `GPU` 的层数变多，性能更差且手机更容易发烫。
 
+---
 
 ## 2. mtmd库 多模态（视觉）支持
 
@@ -236,6 +237,7 @@ llama.cpp相关开发文档太少了，只能看源码，且api较为混乱多�
 5. 多模态kv记忆严重影响当前视觉任务，但是失去记忆无法后续根据视觉任务继续提问
 6. 多模态任务需要针对不同模型设置最佳提示词和采样器
 
+---
 
 ### 3. Agent/MCP 工具调用性能
 
@@ -303,6 +305,7 @@ CPU : SSE3 = 1 | SSSE3 = 1 | AVX = 1 | AVX2 = 1 | F16C = 1 | FMA = 1 | BMI2 = 1 
 
 
 最后从中文支持，存储大小，设备功耗，实际工具调用体验，推理速度等方面出发，从`Gemma3`,`Gemma3n`,`SmolVLM`,`InternVL`,`Qwen2`,`Qwen3`等各系列模型中挑选出`Qwen3-1.7B`作为基础模型综合考虑部署的量化版本
+---
 
 ## 5. Agent/MCP开发
 
@@ -436,6 +439,7 @@ You are a capable AI assistant. Your task is to determine the
 |InternVL3-2B|2.05|31.8|9.53|64%|
 |Qwen3-0.6B（think model open）|1.56|17.38|22.57|32%|
 |Qwen3-1.7B（think model open）|2.61|16.72|57.34|94%|
+---
 
 ## 6. 模型微调
 
