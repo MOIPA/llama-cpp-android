@@ -8,9 +8,16 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import cn.com.zte.app.demollm.agent.ClearCacheTool
+import cn.com.zte.app.demollm.agent.ClearMessageCacheTool
+import cn.com.zte.app.demollm.agent.ClearMiniProgramCacheTool
 import cn.com.zte.app.demollm.agent.CreateCalendarEventTool
+import cn.com.zte.app.demollm.agent.DecreaseFontSizeTool
+import cn.com.zte.app.demollm.agent.UploadLogTool
 import cn.com.zte.app.demollm.agent.ToolRegistry
 import cn.com.zte.app.demollm.agent.GetCalendarEventsTool
+import cn.com.zte.app.demollm.agent.IncreaseFontSizeTool
+import cn.com.zte.app.demollm.agent.SetFontSizeTool
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonSyntaxException
@@ -61,12 +68,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var isMultiModal: Boolean = false
     // 当前模型名称
     private var _modelName: String = ""
+    private var _noThinkFlag: Boolean = true
 
     private data class ToolCall(val tool_name: String, val arguments: JsonObject)
 
     init {
         ToolRegistry.register(CreateCalendarEventTool())
         ToolRegistry.register(GetCalendarEventsTool())
+        ToolRegistry.register(ClearCacheTool())
+        ToolRegistry.register(ClearMessageCacheTool())
+        ToolRegistry.register(ClearMiniProgramCacheTool())
+        ToolRegistry.register(UploadLogTool())
+        ToolRegistry.register(IncreaseFontSizeTool())
+        ToolRegistry.register(DecreaseFontSizeTool())
+        ToolRegistry.register(SetFontSizeTool())
     }
 
     fun startModelLoading(
@@ -202,7 +217,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 ${ToolRegistry.getToolDefinitions()}
 """.trimIndent()
                 llmAndroid.setSystemPrompt(systemPrompt)
-//                llmAndroid.initSystemPrompt()
+                llmAndroid.initSystemPrompt()
                 animationJob.cancel()
                 addMessage("Loaded ${modelFile.name}", MessageType.MODEL)
                 addMessage(llmAndroid.sysinfo(), MessageType.MODEL)
@@ -218,9 +233,10 @@ ${ToolRegistry.getToolDefinitions()}
 
     fun triggerInitSystemPrompt() {
         viewModelScope.launch {
-            addMessage("Initializing system prompt...", MessageType.MODEL)
-            llmAndroid.initSystemPrompt()
-            replaceLastMessage("System prompt initialized.")
+//            addMessage("Initializing system prompt...", MessageType.MODEL)
+//            llmAndroid.initSystemPrompt()
+//            replaceLastMessage("System prompt initialized.")
+            _noThinkFlag = !_noThinkFlag
         }
     }
 
@@ -261,7 +277,7 @@ ${ToolRegistry.getToolDefinitions()}
 
             val responseBuilder = StringBuilder()
             var firstChunkReceived = false
-            if(_modelName=="Qwen3-1.7B-Instruct-Q8_0.gguf")userInput += "/no_think"
+            if(_modelName=="Qwen3-1.7B-Instruct-Q8_0.gguf" && _noThinkFlag)userInput += "/no_think"
             llmAndroid.send(userInput, true, imagePathToSend, isMultiModal)
                 .catch { e ->
                     appendToLastMessage("Error: ${e.message}")
@@ -336,6 +352,7 @@ ${ToolRegistry.getToolDefinitions()}
 
                     val finalSummary = summaryResponseBuilder.toString()
                     val cleanedSummary = finalSummary.replace(Regex("<think>[\\s\\S]*?</think>"), "").trim()
+                        .replace("<think>","").trim()
                     replaceLastMessage(cleanedSummary) // Update UI with cleaned summary
 
                     llmAndroid.supplyMsg(cleanedSummary)
@@ -353,6 +370,19 @@ ${ToolRegistry.getToolDefinitions()}
             _generating.postValue(false)
 //            (_messages.value?.lastOrNull())?.let { llmAndroid.supplyMsg(it.text) }
             Log.d(AGENT_LOG_TAG, "Agent loop finished.")
+        }
+    }
+
+    fun testClearCache(toolName: String) {
+        viewModelScope.launch {
+            val tool = ToolRegistry.getTool(toolName)
+            if (tool != null) {
+                addMessage("Testing ${tool.name}...", MessageType.MODEL)
+                val result = tool.execute(getApplication(), JsonObject())
+                replaceLastMessage("Test Result: ${result.output}")
+            } else {
+                addMessage("Error: Tool '$toolName' not found.", MessageType.MODEL)
+            }
         }
     }
 
