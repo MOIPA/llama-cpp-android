@@ -380,17 +380,6 @@ You are a capable AI assistant. Your task is to determine the
 
 ## 6. 模型微调
 
-### 网络流量分析攻击类型判断
-
-base模型：Gemma3-270m-it
-
-轻量，高速，通用场景下不错的体验。但是本测试中在各种中/英提示词场景下识别任务的能力都十分低下，基本无法使用
-
-一些场景下的表现
-
-|model|0-shot|5-shot|10-shot|20-shot|30-shot|
-|----|-----|-----|-----|-----|-----|
-|Gemma3-270m|accuracy         0.100000 <br> macro avg        0.017212 <br>weighted avg     0.020482  |accuracy         0.160000<br>macro avg        0.168695  <br> weighted avg     0.167199 |accuracy         0.290000 <br> macro avg        0.263372 <br> weighted avg     0.251346 |accuracy         0.250000 <br>macro avg        0.213632 <br> weighted avg     0.208413 |accuracy         0.250000  <br> macro avg        0.215873  <br> weighted avg     0.211222  |
 
 基本配置：
 
@@ -407,7 +396,55 @@ Lora配置
 +  LORA_TARGET_MODULES = ["q_proj", "v_proj"]
 +  LORA_DROPOUT = 0.1
 
+### 网络流量分析攻击类型判断
+
+base模型：Gemma3-270m-it
+
+轻量，高速，通用场景下不错的体验。但是本测试中在各种中/英提示词场景下识别任务的能力都十分低下，基本无法使用
+
+一些场景下的表现
+
+|model|0-shot|5-shot|10-shot|20-shot|30-shot|
+|----|-----|-----|-----|-----|-----|
+|Gemma3-270m|accuracy         0.100000 <br> macro avg        0.017212 <br>weighted avg     0.020482  |accuracy         0.160000<br>macro avg        0.168695  <br> weighted avg     0.167199 |accuracy         0.290000 <br> macro avg        0.263372 <br> weighted avg     0.251346 |accuracy         0.250000 <br>macro avg        0.213632 <br> weighted avg     0.208413 |accuracy         0.250000  <br> macro avg        0.215873  <br> weighted avg     0.211222  |
+
+微调后的表现还是很差，只有25%的准确度 #TODO
+
+### MCP工具路由
+
+主要评价指标是工具名调用准确率和参数填写准确率
+
+base表现：
+
+```
+-- LoRA Model Evaluation Summary ---
+{
+  "exact_match_rate": 0,
+  "tool_name_accuracy": 0,
+  "average_argument_precision": 0,
+  "average_argument_recall": 0,
+  "average_argument_f1": 0,
+  "total_samples": 500
+}
+```
+
+微调后的：
+
+```
+-- LoRA Model Evaluation Summary ---
+{
+  "exact_match_rate": 0.635,
+  "tool_name_accuracy": 0.85,
+  "average_argument_precision": 0.7425,
+  "average_argument_recall": 0.81,
+  "average_argument_f1": 0.765,
+  "total_samples": 500
+}
+```
+
+实际体验虽然270m输入上下文很大，但是基本不具备记忆能力，只能完成单词任务，通过kv先初始化系统和工具提示词的方式并不适用
 
 
 ### MCP/本地工具调用
 
+ #TODO
