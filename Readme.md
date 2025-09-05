@@ -6,10 +6,12 @@
 
 ## 🚀 功能演示 (Demos)
 
-**Agent & MCP 工具调用:**
+**多模态能力 (Vision):**
+
 <img src="pics/cn_multi.gif" alt="Multimodal Demo" width="250" >
 
-**多模态能力 (Vision):**
+**Agent & MCP 工具调用:**
+
 <img src="pics/overview.gif" alt="Agent/MCP Demo" width="250" >
 
 ---
