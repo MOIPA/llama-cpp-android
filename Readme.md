@@ -6,10 +6,10 @@
 
 ## 🚀 功能演示 (Demos)
 
-**多模态能力 (Vision):**
+**Agent & MCP 工具调用:**
 <img src="pics/cn_multi.gif" alt="Multimodal Demo" width="250" >
 
-**Agent & MCP 工具调用:**
+**多模态能力 (Vision):**
 <img src="pics/overview.gif" alt="Agent/MCP Demo" width="250" >
 
 ---
@@ -17,7 +17,7 @@
 ## ✨ 核心功能 (Features)
 
 - **多模态支持:** 集成视觉模型，支持图文对话。
-- **Agent/MCP:** 实现基于大模型的本地工具调用（Tool Calling）。
+- **Agent/MCP:** 实现基于大模型的本地工具调用（Tool Calling）以及MCP服务端工具交互。
 - **模型量化:** 支持多种量化方案（Q8_0, Q4_K_M, IQ4_XS 等）并进行性能评测。
 - **OpenCL 加速:** 在支持的设备上（如骁龙 8 Gen 3）利用 GPU 加速推理。
 - **动态模型管理:** 支持模型选择、加载管理、KV 缓存管理。
@@ -31,7 +31,7 @@
 - **平台:** Android
 - **语言:** Kotlin
 - **UI:** Jetpack Compose, Android Views
-- **核心框架:** [llama.cpp](https://github.com/ggerganov/llama.cpp)
+- **核心框架:** [llama.cpp](https://github.com/ggerganov/llama.cpp),[PEFT](https://huggingface.co/docs/peft/main/en/quicktour)
 - **硬件加速:** OpenCL
 - **构建:** Gradle, Android NDK
 
@@ -49,14 +49,6 @@
    等待 Gradle 同步完成后，直接点击 'Run' 按钮即可在连接的设备或模拟器上安装并运行。
 
 > **注意:** 模型文件需放置在 `app/src/main/assets` 目录下。
-
-
-<img src="pics/cn_multi.gif" alt="alt text" width="250" >
-
-Agent/Mcp示例
-
-<img src="pics/overview.gif" alt="alt text" width="250" >
-
 
 基于最新版本的llama.cpp预编译了动态库和静态库（ndk的工具链），方便快捷启用的普通JNI项目，模型文件放置在assets内
 
