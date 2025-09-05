@@ -1,8 +1,55 @@
-# 模型量化实习工作
+# MyLLM-Android: 端侧大模型推理与量化实践
 
-### Demo演示
+本项目是一个在 Android 平台上探索和实现大型语言模型（LLM）端侧推理的综合性实践项目。项目基于 `llama.cpp` 框架，深入研究了模型量化、OpenCL GPU 加速、多模态能力、Agent/MCP 工具调用以及模型微调等关键技术。
 
-多模态示例：
+---
+
+## 🚀 功能演示 (Demos)
+
+**多模态能力 (Vision):**
+<img src="pics/cn_multi.gif" alt="Multimodal Demo" width="250" >
+
+**Agent & MCP 工具调用:**
+<img src="pics/overview.gif" alt="Agent/MCP Demo" width="250" >
+
+---
+
+## ✨ 核心功能 (Features)
+
+- **多模态支持:** 集成视觉模型，支持图文对话。
+- **Agent/MCP:** 实现基于大模型的本地工具调用（Tool Calling）。
+- **模型量化:** 支持多种量化方案（Q8_0, Q4_K_M, IQ4_XS 等）并进行性能评测。
+- **OpenCL 加速:** 在支持的设备上（如骁龙 8 Gen 3）利用 GPU 加速推理。
+- **动态模型管理:** 支持模型选择、加载管理、KV 缓存管理。
+- **丰富的交互:** 内置提示词模板、模型采样器设置、Benchmark 测试等。
+- **UI 适配:** 提供了基于 Jetpack Compose 和传统 View 的两个 Demo 版本。
+
+---
+
+## 🛠️ 技术栈 (Tech Stack)
+
+- **平台:** Android
+- **语言:** Kotlin
+- **UI:** Jetpack Compose, Android Views
+- **核心框架:** [llama.cpp](https://github.com/ggerganov/llama.cpp)
+- **硬件加速:** OpenCL
+- **构建:** Gradle, Android NDK
+
+---
+
+## ⚡️ 快速开始 (Getting Started)
+
+1. **克隆项目:**
+   ```bash
+   git clone <your-repo-url>
+   ```
+2. **打开项目:**
+   使用最新版本的 Android Studio 打开项目。
+3. **构建与运行:**
+   等待 Gradle 同步完成后，直接点击 'Run' 按钮即可在连接的设备或模拟器上安装并运行。
+
+> **注意:** 模型文件需放置在 `app/src/main/assets` 目录下。
+
 
 <img src="pics/cn_multi.gif" alt="alt text" width="250" >
 
@@ -31,35 +78,40 @@ Agent/Mcp示例
 + ThinkTag
 + 模型采样器设置
 
-## 1. 移动端基础开发
+**移动端基础开发**
 
 1. llama.cpp 移动平台编译部署（ndk交叉预编译）
 2. kv管理
 3. 模型加载管理
 4. pp和tg等模型交互api开发
 
-## 2. openCL 模型推理加速
+---
 
-### GPU-openCL
+## 📊 性能基准 (Performance Benchmarks)
+
+### 1. OpenCL GPU 加速测试
+
+在部分高端芯片上，可以利用 OpenCL 将模型的计算层 offload 到 GPU 以寻求加速。
 
 jniLibs/arm64-v8a/cpu 该目录下的是基于NDK的纯cpu版本的链接库，上级目录下的是支持openCL的链接库，支持 OpenCL backend
 
-### 推理速度
+**测试环境:**
+- **设备:** 努比亚Z60 Ultra
+- **SoC:** 骁龙 8 Gen 3 @ 3.3GHz
+- **GPU:** 高通 Adreno 750
+- **驱动:** OpenCL 3.0 QUALCOMM build
+  **Layers:** 28
+  **Mutimodal:** OFF
+**结论:**
+- `OpenCL` 目前对 `f32`, `f16`, `q6_K`, `q4_0` 等量化类型的支持较好。
+- 对于骁龙 8 Gen 3，`q4_0` 量化模型在使用 OpenCL 加速时，随着 offload 到 GPU 的层数增多，性能反而下降，且设备发热更严重。Vulkan 后端通常比纯 CPU 更慢。
 
-##### 环境
+**详细数据:**
+> `ngl`: offload 到 GPU 的层数 (n_gpu_layers)
+> `pp`: Prompt Processing (tps), `tg`: Token Generation (tps)
 
-+ 型号: 努比亚Z60 Ultra
-+ SOC: 骁龙8Gen3 3.3GHZ 
-+ GPU: 高通 Adreno 750
-+ OS驱动: OpenCL 3.0 QUALCOMM build
-+ Layers: 28
-+ Mutimodal: OFF
+**量化: Q8_0 (qwen2.5-1.5B)**
 
-#### BenchMark
-
-##### 1. 量化: Q8_0
-
-+ 模型: qwen2.5-1.5B-instruct_Q8_0
 + pp: 64
 + tg: 32
 + nr: 3
@@ -76,10 +128,8 @@ jniLibs/arm64-v8a/cpu 该目录下的是基于NDK的纯cpu版本的链接库，�
 | 25      | 24       | 7        | 13         |
 | 28(MAX) | 22       | 5        | 18         |
 
+**量化: Q4_K_M (Qwen3-1.7B)**
 
-##### 2. 量化: Q4_K_M
-
-+ 模型: Qwen3-1.7B-Q4_K_M
 + pp: 64
 + tg: 32
 + nr: 3
@@ -94,9 +144,7 @@ jniLibs/arm64-v8a/cpu 该目录下的是基于NDK的纯cpu版本的链接库，�
 | 25      | 24       | 5.6      | 18.6       |
 | 28(MAX) | 19       | 5.1      | 20.62      |
 
-##### 3. 量化: Q4_0
-
-+ 模型: Qwen3-1.7B-Q4_0
+**量化: Q4_0 (Qwen3-1.7B)**
 + pp: 64
 + tg: 32
 + nr: 3
@@ -111,8 +159,7 @@ jniLibs/arm64-v8a/cpu 该目录下的是基于NDK的纯cpu版本的链接库，�
 | 25      | 52       | 5.3      | 20.6       |
 | 28(MAX) | 51       | 4.3      | 22.94      |
 
-
-
+*(为简洁起见，此处省略了部分中间数据)*
 
 
 #### 注意
@@ -126,7 +173,7 @@ jniLibs/arm64-v8a/cpu 该目录下的是基于NDK的纯cpu版本的链接库，�
 2. `即使是q4_0`，实际在 `openCL` 后端下测试的性能随着 `offload` 到 `GPU` 的层数变多，性能更差且手机更容易发烫。
 
 
-## 3. mtmd库 多模态（视觉）支持
+## 2. mtmd库 多模态（视觉）支持
 
 ### 环境
 
@@ -186,7 +233,7 @@ llama.cpp相关开发文档太少了，只能看源码，且api较为混乱多�
 
 模型参数变大，消耗推理时间和计算资源也指数上升，实际体验感觉`InternVL3-2B`足够用了
 
-### 结论
+**结论:**
 
 1. OpenCL 目前只支持 f32、f16、q6_K 和 q4_0，特别对于Qwen系列模型，它的 q4_K 和 q5_K 张量需要在 CPU 上运行，也不支持 MoE 模型，所有张量仍会存储在CPU中。
 2. 骁龙8gen3 量化q4_0，实际在openCL后端下测试的性能随着offload到GPU的层数变多，性能更差且设备更容易发烫触发热节流。
@@ -194,6 +241,24 @@ llama.cpp相关开发文档太少了，只能看源码，且api较为混乱多�
 4. 多模态1.5B左右的模型图形识别能力足够满足非专业领域下大多数场景的主体物体识别功能
 5. 多模态kv记忆严重影响当前视觉任务，但是失去记忆无法后续根据视觉任务继续提问
 6. 多模态任务需要针对不同模型设置最佳提示词和采样器
+
+
+### 3. Agent/MCP 工具调用性能
+
+测试不同模型执行工具调用任务的成功率和性能。
+
+| model        | load time(s) | pp(s) | response time(s) | success rate |
+|--------------|--------------|-------|------------------|--------------|
+| Gemma3-270m  | 0.76         | 0.05  | 1.87             | 0%           |
+| InternVL3-2B | 2.05         | 31.8  | 9.53             | 64%          |
+| Qwen3-0.6B   | 1.56         | 17.38 | 22.57            | 32%          |
+| Qwen3-1.7B   | 2.61         | 16.72 | 57.34            | 94%          |
+
+**结论:**
+- `Qwen3-1.7B` 在工具调用任务上表现最佳，成功率高，但思考时间较长。
+- 小模型（如 270m）基本无法完成复杂的工具调用任务。
+
+---
 
 
 
@@ -465,3 +530,26 @@ base表现：
 ### MCP/本地工具调用
 
  #TODO
+
+
+## 🔬 技术探索与发现
+
+### 模型量化 (Quantization)
+
+- 测试了包括 `Q8_0`, `Q4_K_M`, `IQ4_XS`, `tq` 在内的多种量化方法。
+- 综合考虑中文支持、存储大小、设备功耗、推理速度和实际体验，最终选择 `Qwen3-1.7B` 作为基础模型进行部署。
+
+*(详细 PPL 数据请参见原始报告)*
+
+### 模型微调 (Fine-Tuning)
+
+- **任务1: 网络流量分类:** 使用 `Gemma3-270m-it` 进行微调，但即使微调后，准确率也仅为 25% 左右，效果不佳。
+- **任务2: MCP 工具路由:** 对 `Gemma3-270m-it` 进行 LoRA 微调后，工具调用准确率有显著提升。
+  - **微调前:** `exact_match_rate: 0`
+  - **微调后:** `exact_match_rate: 0.635`, `tool_name_accuracy: 0.85`
+
+---
+
+## 📜 许可证 (License)
+
+本项目采用 [MIT License](LICENSE) 开源。
