@@ -1,21 +1,6 @@
 # 模型量化实习工作
 
-## 1. 移动端基础开发
-
-1. llama.cpp 移动平台编译部署（ndk交叉预编译）
-2. kv管理
-3. 模型加载管理
-4. pp和tg等模型交互api开发
-
 ### Demo演示
-
-
-官方示例内使用的很多common系列函数已经废弃，且编译好后的install dir内缺失common静态库，加之官方示例的android项目每次运行都得去根项目编译
-
-基于最新版本的llama.cpp预编译了动态库和静态库（ndk的工具链），方便快捷启用的普通JNI项目，模型文件放置在assets内
-
-少数设备（snapdragon 8gen3 & elite）支持openCL，已开启openCL支持，具体offload层数需要根据模型实际确定
-
 
 多模态示例：
 
@@ -26,9 +11,14 @@ Agent/Mcp示例
 <img src="pics/overview.gif" alt="alt text" width="250" >
 
 
-### DemoLLM项目内容
+基于最新版本的llama.cpp预编译了动态库和静态库（ndk的工具链），方便快捷启用的普通JNI项目，模型文件放置在assets内
 
-本体用jetPackCompose做的很多版本不适配，DemoLLM是适配老版本项目的无compose模块，美化了界面，增加了模型选择，更详细的baseModel和mmproj的日志包含：
+少数设备（snapdragon 8gen3 & elite）支持openCL，已开启openCL支持，具体offload层数需要根据模型实际确定
+
+
+### 子模块内容
+
+本体用jetPackCompose做的很多版本不适配，DemoLLM是适配老版本项目的无compose组件，美化了界面，增加了模型选择，更详细的baseModel和mmproj的日志包含：
 
 + 图片上传
 + 多模态支持
@@ -40,6 +30,13 @@ Agent/Mcp示例
 + Agent+MCP接口调用
 + ThinkTag
 + 模型采样器设置
+
+## 1. 移动端基础开发
+
+1. llama.cpp 移动平台编译部署（ndk交叉预编译）
+2. kv管理
+3. 模型加载管理
+4. pp和tg等模型交互api开发
 
 ## 2. openCL 模型推理加速
 
