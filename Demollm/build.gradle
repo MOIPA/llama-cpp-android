@@ -78,6 +78,9 @@ dependencies {
     implementation project(path: ':ZTEBaseFlavor')
     implementation project(path: ':ModuleCalendar:CalendarTableAndBean')
     implementation project(path: ':ZTESettings')
+    implementation project(path: ':ZTESearch')
+    implementation project(path: ':ZTERouter')
+    implementation project(path: ':ModuleCalendar:CalendarHttp')
 
     implementation 'androidx.core:core-ktx:1.9.0'
     implementation 'androidx.appcompat:appcompat:1.4.1'

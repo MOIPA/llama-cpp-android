@@ -8,16 +8,21 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import cn.com.zte.app.demollm.AgentChatMessage
 import cn.com.zte.app.demollm.agent.ClearCacheTool
 import cn.com.zte.app.demollm.agent.ClearMessageCacheTool
 import cn.com.zte.app.demollm.agent.ClearMiniProgramCacheTool
+import cn.com.zte.app.demollm.agent.CreateCalendarEventApiTool
 import cn.com.zte.app.demollm.agent.CreateCalendarEventTool
 import cn.com.zte.app.demollm.agent.DecreaseFontSizeTool
+import cn.com.zte.app.demollm.agent.SearchContactTool
 import cn.com.zte.app.demollm.agent.UploadLogTool
 import cn.com.zte.app.demollm.agent.ToolRegistry
 import cn.com.zte.app.demollm.agent.GetCalendarEventsTool
+import cn.com.zte.app.demollm.agent.GetCurrentDateTool
 import cn.com.zte.app.demollm.agent.IncreaseFontSizeTool
 import cn.com.zte.app.demollm.agent.SetFontSizeTool
+import cn.com.zte.framework.base.context
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonSyntaxException
@@ -29,7 +34,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-
+import java.io.FileInputStream
+enum class AgentMessageRole { SYSTEM, USER, ASSISTANT, TOOL }
+data class AgentChatMessage(val role: AgentMessageRole, val content: String)
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val llmAndroid: LLMAndroid = LLMAndroid.instance()
@@ -68,20 +75,65 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var isMultiModal: Boolean = false
     // 当前模型名称
     private var _modelName: String = ""
-    private var _noThinkFlag: Boolean = true
+    private var _noThinkFlag: Boolean = false
 
     private data class ToolCall(val tool_name: String, val arguments: JsonObject)
 
     init {
-        ToolRegistry.register(CreateCalendarEventTool())
+//        ToolRegistry.register(CreateCalendarEventTool())
         ToolRegistry.register(GetCalendarEventsTool())
-        ToolRegistry.register(ClearCacheTool())
-        ToolRegistry.register(ClearMessageCacheTool())
-        ToolRegistry.register(ClearMiniProgramCacheTool())
-        ToolRegistry.register(UploadLogTool())
-        ToolRegistry.register(IncreaseFontSizeTool())
-        ToolRegistry.register(DecreaseFontSizeTool())
-        ToolRegistry.register(SetFontSizeTool())
+//        ToolRegistry.register(ClearCacheTool())
+//        ToolRegistry.register(ClearMessageCacheTool())
+//        ToolRegistry.register(ClearMiniProgramCacheTool())
+        ToolRegistry.register(GetCurrentDateTool())
+//        ToolRegistry.register(UploadLogTool())
+        ToolRegistry.register(SearchContactTool())
+//        ToolRegistry.register(IncreaseFontSizeTool())
+//        ToolRegistry.register(DecreaseFontSizeTool())
+//        ToolRegistry.register(SetFontSizeTool())
+        ToolRegistry.register(CreateCalendarEventApiTool())
+    }
+
+    fun merge() {
+        viewModelScope.launch {
+            val appCtx = context()
+            val outputFile = File(appCtx.filesDir, "Qwen3-4B-Instruct-Q8_0.gguf")
+            if (outputFile.exists()) {
+                // 如果已经合并过，就不重复合并
+                return@launch
+            }
+            try {
+                val bufferSize = 8192
+                val buffer = ByteArray(bufferSize)
+                // 输出流
+                val out = FileOutputStream(outputFile)
+                // 按顺序合并三个文件
+                for (part in listOf("Qwen3-4B_part_aa-Instruct-Q8_0.gguf", "Qwen3-4B_part_ab-Instruct-Q8_0.gguf", "Qwen3-4B_part_ac-Instruct-Q8_0.gguf")) {
+                    val filePart = File(appCtx.filesDir, part)
+                    val partInputStream = FileInputStream(filePart)
+                    var bytesRead: Int
+                    while (partInputStream.read(buffer).also { bytesRead = it } != -1) {
+                        out.write(buffer, 0, bytesRead)
+                    }
+
+                    partInputStream.close()
+                }
+
+                out.flush()
+                out.close()
+
+                // 可选：合并完成后删除分片文件
+                // File(filesDir, "gemma_a").delete()
+                // File(filesDir, "gemma_b").delete()
+                // File(filesDir, "gemma_c").delete()
+
+                Log.i("merge","合并完成：$outputFile")
+
+            } catch (e: Exception) {
+                Log.i("merge","合并失败：$outputFile")
+                e.printStackTrace()
+            }
+        }
     }
 
     fun startModelLoading(
@@ -89,7 +141,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         mmprojName: String = ""
     ) {
         _messages.value = listOf(
-            ChatMessage("Model : $baseModelName \nMMProj : $mmprojName", MessageType.MODEL)
+            ChatMessage("Model : $baseModelName \nMMProj : $mmprojName \n no think :$_noThinkFlag", MessageType.MODEL)
         )
         viewModelScope.launch {
             llmAndroid.unload()
@@ -160,6 +212,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     appCtx.assets.open(modelName)
                         .use { i -> modelFile.outputStream().use { o -> i.copyTo(o) } }
                 }
+//                merge()
                 // TODO 目前根据模型名称硬编码
                 val isGreedy = when (modelName) {  // 是否启用贪婪采样
                     "InternVL3-2B-Instruct-Q8_0.gguf" -> true
@@ -177,7 +230,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     mmproj_use_gpu,
                     isMultiModal=isMultiModal,
                     isGreedy=isGreedy,
-                    temp = 0.7f,
+                    temp = 0.5f,
                     topPP = 0.8f,
                 )
 
@@ -191,28 +244,69 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 **工具调用规则**：
 当你决定调用工具时，必须严格按照MCP协议输出一个JSON对象，不要输出思考过程，也绝对不允许在JSON前后添加任何多余的文字。
 
---- 示例开始 ---
-示例1：需要调用工具
-用户问题: "帮我查一下今天的日程"
-你的回答: {"tool_name": "get_calendar_events", "arguments": {date:"今天"}}
+**核心规则：处理前置条件**
+某些工具的描述中包含了 `[前置条件: ...]`。在调用这些工具之前，你**必须**首先确保它的前置条件已经被满足。如果前置条件尚未满足（例如，你还不知道今天的日期），你的**唯一任务**就是去调用那个能满足前置条件的工具（例如 `get_current_date`）。**绝对不能**在一次输出中，同时输出多个工具调用。
 
-示例2：无需调用工具 (普通对话)
-用户问题: "你好"
-你的回答: "你好！有什么可以帮你的吗？"
+**核心规则：判断任务完成**
+当工具的返回结果 `[tool_result]` 中包含了明确的成功标识，如 "success", "成功", "已创建", "已完成", "已打开页面" 等关键词时，这代表你的任务已经完成。此时，你**必须**停止调用任何工具，并基于这个成功的结果，为用户生成一个最终的、确认性的自然语言回答。**绝对不能**再次调用相同的或其他的工具。
 
-示例3：需要调用工具
-用户问题: "创建一个日程"
-你的回答: {"tool_name": "create_calendar_event", "arguments": {"title": "开会"}}
+**核心规则：处理日期**
+你没有任何关于当前日期的先验知识。当用户的请求中包含“今天”、“明天”、“下周三”这样的相对时间描述时，它们本身并不是一个可用的日期。你**必须**首先调用 `get_current_date` 工具来获取当前的绝对日期，然后基于这个结果计算出用户所指的目标日期，才能调用其他工具。
 
-示例4：无需调用工具 (问题超出工具范围)
-用户问题: "今天天气怎么样？"
-你的回答: "抱歉，我无法获取天气信息，但我可以帮你管理日程。"
+---
+**重要提示：以下示例仅用于说明格式，不应被视为真实对话历史。示例中出现的日期（如 “2099-01-01”）均为虚构，绝不能在实际任务中使用。
 
-示例5：处理图片问题 (无需调用工具)
-用户问题: "这张图里有什么？"
-你的回答: "这张图片展示了[此处为图片内容的描述]。"
---- 示例结束 ---
+# 示例 1: 简单工具调用
+[conversation_history]
+用户: "帮我查一下2025年9月10号有什么安排"
+[your_turn]
+{"tool_name": "get_calendar_events", "arguments": {"date": "2025-09-10"}}
 
+# 示例 2: 无需调用工具 (普通对话)
+[conversation_history]
+用户: "你好"
+[your_turn]
+你好！有什么可以帮你的吗？
+
+# 示例 3: 链式调用的第一步 (信息不足，需获取日期)
+[conversation_history]
+用户: "帮我在明天下午2点安排一个讨论需求的会议，大约持续一小时"
+[your_turn]
+{"tool_name": "get_current_date", "arguments": {}}
+
+# 示例 4: 链式调用的第二步 (已获取日期，继续执行任务)
+[conversation_history]
+用户: "帮我在明天下午2点安排一个讨论需求的会议，大约持续一小时"
+<|im_start|>assistant
+{"tool_name": "get_current_date", "arguments": {}}
+<|im_end|>
+<|im_start|>tool
+[tool_result]
+get_current_date() -> "20xx-01-01" #示例模拟数据，非真实数据
+[/tool_result]
+<|im_end|>
+[your_turn]
+<think>
+我收到了用户的原始请求“明天开会”。我检查了历史记录，发现我已经调用了 get_current_date 并得到了结果 "2099-01-01"。现在 create_calendar_event_api 的日期前置条件已经满足。因此，我可以计算出“明天”是“2099-01-02”，并调用创建工具。
+</think>
+{"tool_name": "create_calendar_event_api", "arguments": {"title": "讨论需求的会议", "start_time": "2099-01-02 14:00:00", "end_time": "2099-01-02 15:00:00"}}
+
+
+# 示例 5: 任务完成
+[conversation_history]
+用户: "帮我在明天下午2点安排一个讨论需求的会议，大约持续一小时"
+[tool_result]
+get_current_date() -> "20xx-01-01"   # 请注意！！！ 这里的是模拟数据，只是为了告诉你多阶段时怎么调用，这里的调用结果错误，请重新调用！
+[/tool_result]
+[tool_code]
+{"tool_name": "create_calendar_event_api", "arguments": {"title": "讨论需求的会议", "start_time": "2099-01-02 14:00:00", "end_time": "2099-01-02 15:00:00"}}
+[/tool_code]
+[tool_result]
+create_calendar_event_api() -> "{\"status\": \"success\", \"message\": \"日程已创建\"}"     # 示例模拟数据，非真实数据
+[/tool_result]
+[your_turn]
+好的，会议已经为您安排在明天下午2点。
+---
 可用的工具列表如下:
 ${ToolRegistry.getToolDefinitions()}
 """.trimIndent()
@@ -277,8 +371,8 @@ ${ToolRegistry.getToolDefinitions()}
 
             val responseBuilder = StringBuilder()
             var firstChunkReceived = false
-            if(_modelName=="Qwen3-1.7B-Instruct-Q8_0.gguf" && _noThinkFlag)userInput += "/no_think"
-            llmAndroid.send(userInput, true, imagePathToSend, isMultiModal)
+            if(_modelName.startsWith("Qwen3") && _noThinkFlag)userInput += "/no_think"
+            llmAndroid.send(userInput, true, imagePathToSend, isMultiModal,isPreformatted = false)
                 .catch { e ->
                     appendToLastMessage("Error: ${e.message}")
                     _generating.postValue(false)
@@ -332,7 +426,7 @@ ${ToolRegistry.getToolDefinitions()}
                     Log.d(AGENT_LOG_TAG, "Summarization Prompt sent to LLM.")
                     val summaryResponseBuilder = StringBuilder()
                     var firstChunk = true
-                    llmAndroid.send(finalPrompt, true, "", isMultiModal) // No image for summary
+                    llmAndroid.send(finalPrompt, true, "", isMultiModal,isPreformatted = false) // No image for summary
                         .catch { e ->
                             appendToLastMessage("\nError: ${e.message}"); Log.e(
                             AGENT_LOG_TAG,
@@ -388,32 +482,50 @@ ${ToolRegistry.getToolDefinitions()}
 
     private fun parseToolCall(response: String): ToolCall? {
         try {
-            val lastBrace = response.lastIndexOf('}')
-            if (lastBrace == -1) return null
+            // 1. Clean the response by removing any <think>...</think> blocks.
+            val cleanedResponse = response.replace(Regex("<think>[\\s\\S]*?</think>"), "").trim()
 
-            var openBraces = 0
-            var jsonStart = -1
+            // 2. Find the first opening brace in the cleaned response.
+            val jsonStart = cleanedResponse.indexOf('{')
+            if (jsonStart == -1) {
+                Log.d(AGENT_LOG_TAG, "No JSON object found after cleaning <think> blocks.")
+                return null
+            }
 
-            // From the last brace, search backwards to find the matching opening brace
-            for (i in lastBrace downTo 0) {
-                when (response[i]) {
-                    '}' -> openBraces++
-                    '{' -> openBraces--
+            var openBraces = 1 // Start with 1 since we found the first brace.
+            var jsonEnd = -1
+
+            // 3. Iterate to find the corresponding closing brace.
+            for (i in jsonStart + 1 until cleanedResponse.length) {
+                when (cleanedResponse[i]) {
+                    '{' -> openBraces++
+                    '}' -> openBraces--
                 }
                 if (openBraces == 0) {
-                    jsonStart = i
-                    break
+                    jsonEnd = i
+                    break // Found the end of the JSON object.
                 }
             }
 
-            if (jsonStart == -1) return null
+            if (jsonEnd == -1) {
+                Log.d(AGENT_LOG_TAG, "Incomplete JSON object found in cleaned response.")
+                return null
+            }
 
-            val jsonString = response.substring(jsonStart, lastBrace + 1)
+            // 4. Extract and parse the JSON string.
+            val jsonString = cleanedResponse.substring(jsonStart, jsonEnd + 1)
+            Log.d(AGENT_LOG_TAG, "Attempting to parse JSON: $jsonString")
             val toolCall = gson.fromJson(jsonString, ToolCall::class.java)
 
-            return if (toolCall.tool_name.isNullOrBlank() || toolCall.arguments == null) null else toolCall
+            // 5. Basic validation.
+            return if (toolCall.tool_name.isNullOrBlank() || toolCall.arguments == null) {
+                Log.d(AGENT_LOG_TAG, "Parsed JSON is not a valid ToolCall: $jsonString")
+                null
+            } else {
+                toolCall
+            }
         } catch (e: JsonSyntaxException) {
-            Log.d(AGENT_LOG_TAG, "Not a valid tool call JSON in response: $response. ${e.message}")
+            Log.e(AGENT_LOG_TAG, "Failed to parse JSON object from response: '$response'. Error: ${e.message}")
             return null
         }
     }
@@ -468,5 +580,131 @@ ${ToolRegistry.getToolDefinitions()}
             }
         }
         return tempFile
+    }
+
+    fun sendWithLoop(context: Context) {
+        viewModelScope.launch {
+            Log.d(AGENT_LOG_TAG, "Agent loop started.")
+            initializingJob?.join()
+            val userInput = internalMessage
+            if (userInput.isBlank()) return@launch
+            internalMessage = ""
+
+            val imagePathToSend = _imagePath.value ?: ""
+            _imagePath.postValue("")
+
+            addMessage(userInput, MessageType.USER)
+            if (imagePathToSend.isNotEmpty()) addMessage("<ImagePath>$imagePathToSend", MessageType.USER)
+
+            _generating.postValue(true)
+
+//            val systemPrompt = llmAndroid.getSystemPrompt()
+//            var conversationHistory = "[conversation_history]\n用户: $userInput"
+//            if (imagePathToSend.isNotEmpty()) conversationHistory = userInput // Override for multimodal
+            val conversationHistory = mutableListOf<AgentChatMessage>()
+//            conversationHistory.add(AgentChatMessage(AgentMessageRole.SYSTEM, buildSystemPrompt()))
+            conversationHistory.add(AgentChatMessage(AgentMessageRole.USER, userInput))
+
+            // --- Reasoning Loop ---
+            var loopCount = 0
+            val maxLoops = 5
+
+            while (loopCount < maxLoops) {
+                loopCount++
+                Log.d(AGENT_LOG_TAG, "Loop #$loopCount")
+
+                addMessage("", MessageType.MODEL)
+                val thinkingJob = showThinkingAnimation()
+
+                val responseBuilder = StringBuilder()
+                var firstChunkReceived = false
+
+                // Construct the prompt for the current turn
+                val currentTurnPrompt = buildChatMLPrompt(conversationHistory)
+                Log.d(AGENT_LOG_TAG, "Loop #$loopCount Prompt:\n$currentTurnPrompt")
+
+                // Add no_think flag if needed for the first turn
+                val finalPrompt = if (loopCount == 1 && _modelName.startsWith("Qwen3") && _noThinkFlag) {
+                    currentTurnPrompt.replace("<|im_start|>assistant", "<|im_start|>assistant/no_think")
+                } else {
+                    currentTurnPrompt
+                }
+
+                llmAndroid.send(finalPrompt, true, if(loopCount == 1) imagePathToSend else "", isMultiModal, isPreformatted = true)
+                    .catch { e ->
+                        thinkingJob.cancel()
+                        appendToLastMessage("Error: ${e.message}")
+                        Log.e(AGENT_LOG_TAG, "LLM call failed in loop #$loopCount", e)
+                        loopCount = maxLoops // End loop
+                    }
+                    .collect { chunk ->
+                        if (!firstChunkReceived) {
+                            thinkingJob.cancel()
+                            replaceLastMessage("")
+                            firstChunkReceived = true
+                        }
+                        appendToLastMessage(chunk)
+                        responseBuilder.append(chunk)
+                    }
+                if (!firstChunkReceived) thinkingJob.cancel()
+
+                val fullResponse = responseBuilder.toString()
+                Log.d(AGENT_LOG_TAG, "Loop #$loopCount Raw Response: $fullResponse")
+
+                val cleanedResponse = fullResponse.replace(Regex("<think>[\\s\\S]*?</think>"), "").trim().replace("<think>", "").trim()
+                val toolCall = parseToolCall(fullResponse)
+                conversationHistory.add(AgentChatMessage(AgentMessageRole.ASSISTANT, cleanedResponse))
+
+                if (toolCall != null) {
+                    replaceLastMessage("正在调用工具: ${toolCall.tool_name}...")
+                    val tool = ToolRegistry.getTool(toolCall.tool_name)
+                    if (tool != null) {
+                        val toolResult = withContext(Dispatchers.IO) { tool.execute(context, toolCall.arguments) }
+                        val toolResultText = "[tool_result]\n${toolCall.tool_name}() -> ${toolResult.output}\n[/tool_result]"
+                        Log.d(AGENT_LOG_TAG, "Loop #$loopCount: Tool result: $toolResultText")
+                        
+                        conversationHistory.add(AgentChatMessage(AgentMessageRole.TOOL, toolResultText))
+
+                        appendToLastMessage("\n工具返回: ${toolResult.output}")
+                        llmAndroid.supplyMsg(cleanedResponse)
+                        llmAndroid.supplyMsg(toolResultText)
+                        continue
+                    } else {
+                        val errorMsg = "错误: 未找到工具 '${toolCall.tool_name}'."
+                        appendToLastMessage(errorMsg)
+                        llmAndroid.supplyMsg(errorMsg)
+                        break
+                    }
+                } else {
+                    Log.d(AGENT_LOG_TAG, "Loop #$loopCount: No tool call detected. Assuming final answer.")
+                    replaceLastMessage(cleanedResponse)
+                    llmAndroid.supplyMsg(cleanedResponse)
+                    break
+                }
+            }
+
+            if (loopCount >= maxLoops) {
+                Log.w(AGENT_LOG_TAG, "Max loops reached. Exiting.")
+                appendToLastMessage("\n(已达到最大尝试次数)")
+            }
+
+            _generating.postValue(false)
+            Log.d(AGENT_LOG_TAG, "Agent loop finished.")
+        }
+    }
+    private fun buildChatMLPrompt(history: List<AgentChatMessage>): String {
+        return history.joinToString("\n") { msg ->
+            "<|im_start|>${msg.role.name.lowercase()}\n${msg.content}<|im_end|>"
+        } + "\n<|im_start|>assistant"
+    }
+    private fun showThinkingAnimation(): Job {
+        return viewModelScope.launch {
+            var dots = 0
+            while (true) {
+                replaceLastMessage("思考中" + ".".repeat(dots % 4))
+                delay(500)
+                dots++
+            }
+        }
     }
 }

@@ -22,6 +22,6 @@ object DemoLLMApiUtils {
 
     @JvmStatic
     fun navigateToDemoLLM(context: Context) {
-        getNavigationService()?.navigateToDemoLLM(context)
+    getNavigationService()?.navigateToDemoLLM(context)
     }
 }

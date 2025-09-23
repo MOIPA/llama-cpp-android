@@ -14,7 +14,7 @@ class CreateCalendarEventTool : ITool {
     override val definition = """
     {
       "tool_name": "create_calendar_event",
-      "tool_description": "Create a new calendar event, meeting, or to-do item.",
+      "tool_description": "创建一个新的日历事件、会议或待办事项。注意：如果用户没有提供具体日期，你应该先调用 get_current_date 工具来获取今天的日期。",
       "arguments": {
         "type": "json object",
         "properties": {

@@ -16,6 +16,11 @@ import com.alibaba.android.arouter.facade.annotation.Route
 @Route(path = APP_DEMO_LLM_SERVICE)
 class LLMAndroid(): DemoLLMInterface {
     private val tag: String? = this::class.simpleName
+    private var systemPrompt: String = ""
+
+    fun getSystemPrompt(): String {
+        return this.systemPrompt
+    }
 
     private val threadLocalState: ThreadLocal<State> = object : ThreadLocal<State>() {
         override fun initialValue(): State {
@@ -86,14 +91,16 @@ class LLMAndroid(): DemoLLMInterface {
         text: String,
         formatChat: Boolean,
         nLen: Int,
-        picf:String
+        picf:String,
+        isPreformatted: Boolean
     ): Int
     private external fun completion_init(
         context: Long,
         batch: Long,
         text: String,
         formatChat: Boolean,
-        nLen: Int
+        nLen: Int,
+        isPreformatted: Boolean
     ): Int
 
     private external fun completion_loop(
@@ -162,12 +169,12 @@ class LLMAndroid(): DemoLLMInterface {
         }
     }
 
-    override fun send(message: String, formatChat: Boolean, picf:String,isMultiModal: Boolean): Flow<String> = flow {
+    override fun send(message: String, formatChat: Boolean, picf:String,isMultiModal: Boolean, isPreformatted: Boolean): Flow<String> = flow {
         when (val state = threadLocalState.get()) {
             is State.Loaded -> {
                 var ncur = when(isMultiModal){
-                    true -> completion_init_vision(state.context, state.batch, message, formatChat, nlen,picf)
-                    false -> completion_init(state.context, state.batch, message, formatChat, nlen)
+                    true -> completion_init_vision(state.context, state.batch, message, formatChat, nlen,picf, isPreformatted)
+                    false -> completion_init(state.context, state.batch, message, formatChat, nlen, isPreformatted)
                 }
                 while (ncur <= nlen) {
                     ncur++

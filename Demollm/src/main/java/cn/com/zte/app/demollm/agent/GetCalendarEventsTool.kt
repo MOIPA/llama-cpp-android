@@ -23,19 +23,20 @@ class GetCalendarEventsTool : ITool {
     override val definition = """
     {
       "tool_name": "get_calendar_events",
-      "tool_description": "Query the list of schedules, meetings, or to-do items for a specified date no matter whether if user provide the date info.",
+      "tool_description": "查询指定日期的日程列表。[前置条件: 如果用户没有提供具体日期，必须先通过 get_current_date 工具获得今天的日期]。如果用户的描述中包含‘今天’、‘明天’等相对时间，你必须先调用 get_current_date 来解析成绝对日期。",
       "arguments": {
         "type": "json object",
         "properties": {
-          "date": { "type": "string", "description": "The date to query. If the user does not provide it, this parameter should be ignored." }
-        }
+          "date": { "type": "string", "description": "The date to query. 格式是 yyyy-MM-dd" }
+        },
+        "required": ["date"]
       }
     }
     """.trimIndent()
 
     override fun execute(context: Context, arguments: JsonObject): ToolResult {
-//        val date = arguments.get("date")?.asString ?: SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-        val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val date = arguments.get("date")?.asString ?: SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+//        val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
         return try {
             Log.d(AGENT_LOG_TAG, "Executing get_calendar_events for date: $date")
@@ -64,7 +65,7 @@ class GetCalendarEventsTool : ITool {
                 val formattedEvents = eventList.joinToString(separator = "\n") { event ->
                     "- ${event.startTimeParam}: ${event.title}"
                 }
-                ToolResult(true, formattedEvents)
+                ToolResult(true, "查询成功，日程安排为：\n $formattedEvents")
             }
         } catch (e: Exception) {
             Log.e(AGENT_LOG_TAG, "Exception in GetCalendarEventsTool", e)

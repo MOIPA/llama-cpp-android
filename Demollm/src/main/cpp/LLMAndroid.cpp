@@ -77,30 +77,38 @@ void process_system_prompt_and_cache(llama_context *context, const llama_model *
 
     LOGi("Processing system prompt.");
     std::vector<llama_chat_message> system_message_vec;
+//    std::string texts = "你是一个ai助手";
     system_message_vec.push_back({"system", g_system_prompt.c_str()});
-
+    LOGi("Processing system prompt..");
     std::vector<char> formatted(llama_n_ctx(context));
+    LOGi("Processing system prompt...");
     const char *tmpl = llama_model_chat_template(model, /* name */ nullptr);
+    LOGi("Processing system prompt....");
+
     int new_len = llama_chat_apply_template(tmpl, system_message_vec.data(), system_message_vec.
             size(), true, formatted.data(), formatted.size());
+    LOGi("Processing system prompt..... %d",new_len);
     if (new_len < 0) {
         LOGe("Failed to apply chat template for system prompt.");
         return;
     }
     std::string system_prompt_text(formatted.begin(), formatted.begin() + new_len);
+    LOGi("Processing system prompt %s",system_prompt_text.c_str());
 
     auto tokens_list = common_tokenize(context, system_prompt_text, true, true);
     llama_batch batch = llama_batch_init(tokens_list.size(), 0, 1);
-
     for (size_t i = 0; i < tokens_list.size(); ++i) {
         common_batch_add(batch, tokens_list[i], i, {0}, false);
     }
     batch.logits[batch.n_tokens - 1] = true;
+    LOGi("Processing system prompt......");
     if (llama_decode(context, batch) != 0) {
         LOGe("Failed to decode system prompt.");
         return;
     }
+    LOGi("Processing system prompt.......");
     prev_tokens_len = batch.n_tokens;
+    LOGi("Processing system prompt........");
     llama_batch_free(batch);
     LOGi("System prompt processed and cached. prev_tokens_len = %d", prev_tokens_len);
 }
@@ -199,6 +207,7 @@ Java_cn_com_zte_app_demollm_LLMAndroid_new_1context(JNIEnv *env, jobject, jlong 
 
     llama_context_params ctx_params = llama_context_default_params();
 
+//    ctx_params.n_ctx = 128000;
     ctx_params.n_ctx = 10240;
     ctx_params.n_threads = n_threads;
     ctx_params.n_threads_batch = n_threads;
@@ -460,7 +469,8 @@ Java_cn_com_zte_app_demollm_LLMAndroid_completion_1init_1vision(
         jstring jtext,
         jboolean format_chat,
         jint n_len,
-        jstring picf
+        jstring picf,
+        jboolean pre_format
 ) {
 
     cached_token_chars.clear();
@@ -580,34 +590,59 @@ Java_cn_com_zte_app_demollm_LLMAndroid_completion_1init(
         jlong batch_pointer,
         jstring jtext,
         jboolean format_chat,
-        jint n_len
+        jint n_len,
+        jboolean is_preformatted
 ) {
     cached_token_chars.clear();
     const auto text = env->GetStringUTFChars(jtext, 0);
     const auto context = reinterpret_cast<llama_context *>(context_pointer);
     const auto batch = reinterpret_cast<llama_batch *>(batch_pointer);
     // chat历史记忆，会话预处理
-    std::vector<char> formatted(llama_n_ctx(context));
     const auto model = llama_get_model(context);
     const llama_vocab *vocab = llama_model_get_vocab(model);
-    const char *tmpl = llama_model_chat_template(model, /* name */ nullptr);
     messages.push_back({"user", strdup(text)}); // 添加用户会话
-
+    std::string prompt;
     // 格式化提示词
-    int new_len = llama_chat_apply_template(tmpl, messages.data(),
-                                            messages.size(), true, formatted.data(),
-                                            formatted.size());
-    if (new_len > (int) formatted.size()) {
-        formatted.resize(new_len);
-        new_len = llama_chat_apply_template(tmpl, messages.data(),
-                                            messages.size(), true, formatted.data(),
-                                            formatted.size());
+//    int new_len = llama_chat_apply_template(tmpl, messages.data(),
+//                                            messages.size(), true, formatted.data(),
+//                                            formatted.size());
+//    if (new_len > (int) formatted.size()) {
+//        formatted.resize(new_len);
+//        new_len = llama_chat_apply_template(tmpl, messages.data(),
+//                                            messages.size(), true, formatted.data(),
+//                                            formatted.size());
+//    }
+//    if (new_len < 0) {
+//        LOGe("failed to apply the chat template\n");
+//    }
+//    std::string prompt(formatted.begin() + chat_history_tokens_len,
+//                       formatted.begin() + new_len); // 新的prompt
+
+    if (is_preformatted) {
+        // 如果是预格式化的，直接使用 text 作为 prompt
+        LOGi("Using pre-formatted prompt.");
+        prompt = std::string(text);
+    } else {
+        // 否则，执行现有的模板应用逻辑
+        LOGi("Applying chat template.");
+        std::vector<char> formatted(llama_n_ctx(context));
+        const char *tmpl = llama_model_chat_template(model, nullptr);
+        int new_len = llama_chat_apply_template(tmpl, messages.data(),messages.size(), true, formatted.data(),formatted.size());
+        if (new_len > (int) formatted.size()) {
+            formatted.resize(new_len);
+            new_len = llama_chat_apply_template(tmpl, messages.data(),
+                                                messages.size(), true, formatted.data(),
+                                                formatted.size());
+        }
+        if (new_len < 0) {
+            LOGe("failed to apply the chat template\\n");
+        }
+        prompt = std::string(formatted.begin() + chat_history_tokens_len,
+                             formatted.begin() + new_len);
     }
-    if (new_len < 0) {
-        LOGe("failed to apply the chat template\n");
-    }
-    std::string prompt(formatted.begin() + chat_history_tokens_len,
-                       formatted.begin() + new_len); // 新的prompt
+    // --- 后续逻辑保持不变 ---
+
+
     // KV 缓存溢出检查
     const auto tokens_list_for_check = common_tokenize(context, prompt, true, true);
     auto n_ctx = llama_n_ctx(context);
@@ -690,8 +725,8 @@ Java_cn_com_zte_app_demollm_LLMAndroid_completion_1loop(
     jstring new_token = nullptr;
     if (is_valid_utf8(cached_token_chars.c_str())) {
         new_token = env->NewStringUTF(cached_token_chars.c_str());
-        LOGi("cached: %s, new_token_chars: `%s`, id: %d", cached_token_chars.c_str(),
-             new_token_chars.c_str(), new_token_id);
+//        LOGi("cached: %s, new_token_chars: `%s`, id: %d", cached_token_chars.c_str(),
+//             new_token_chars.c_str(), new_token_id);
         cached_token_chars.clear();
     } else {
         new_token = env->NewStringUTF("");

@@ -33,10 +33,12 @@ class DemoLLMActivity : BaseActivity() {
     private lateinit var messageAdapter: MessageAdapter
 
     private val models = mapOf(
-        "Qwen3-1.7B-tq1_0" to "",   // 纯文本模型，不支持多模态
         "Qwen3-1.7B" to "",   // 纯文本模型，不支持多模态
-        "gemma-3-270m" to "",   // 纯文本模型，不支持多模态
+        "Qwen3-4B" to "",   // 纯文本模型，不支持多模态
+        "Qwen3-1.7B-Q4_K_M" to "",   // 纯文本模型，不支持多模态
         "sft-270m-v1.0" to "",   // 纯文本模型，不支持多模态
+        "Qwen3-1.7B-tq1_0" to "",   // 纯文本模型，不支持多模态
+        "gemma-3-270m" to "",   // 纯文本模型，不支持多模态
         "SmolVLM2-500M-Video" to "mmproj-SmolVLM2-500M-Video-Instruct-Q8_0.gguf",
         "InternVL3-2B" to "mmproj-InternVL3-2B-Instruct-Q8_0.gguf",
         "Qwen3-0.6B" to "",   // 纯文本模型，不支持多模态
@@ -99,7 +101,7 @@ class DemoLLMActivity : BaseActivity() {
             if (message.isNotBlank()) {
                 viewModel.updateMessage(message)
                 binding.messageEditText.text.clear()
-                viewModel.send(this@DemoLLMActivity)
+                viewModel.sendWithLoop(this@DemoLLMActivity)
             }
         }
         binding.attachButton.setOnClickListener { pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly)) }
@@ -107,7 +109,7 @@ class DemoLLMActivity : BaseActivity() {
         binding.clearImageButton.setOnClickListener { viewModel.clearImage() }
         binding.clearButton.setOnClickListener { viewModel.clearHistoryAndKV() }
         binding.initSysPromptButton.setOnClickListener { viewModel.triggerInitSystemPrompt() }
-        
+
 //        binding.createEventButton.setOnClickListener { createTestEvent() }
 //        binding.deleteEventButton.setOnClickListener { Log.d("CalendarTest", "Delete Event button clicked.") }
 //        binding.viewEventsButton.setOnClickListener { viewTodayEvents() }
