@@ -23,13 +23,13 @@ class GetCalendarEventsTool : ITool {
     override val definition = """
     {
       "tool_name": "get_calendar_events",
-      "tool_description": "查询指定日期的日程列表。[前置条件: 如果用户没有提供具体日期，必须先通过 get_current_date 工具获得今天的日期]。如果用户的描述中包含‘今天’、‘明天’等相对时间，你必须先调用 get_current_date 来解析成绝对日期。",
+      "tool_description": "查询指定日期的日程列表。",
       "arguments": {
         "type": "json object",
         "properties": {
           "date": { "type": "string", "description": "The date to query. 格式是 yyyy-MM-dd" }
         },
-        "required": ["date"]
+        "required": [""]
       }
     }
     """.trimIndent()

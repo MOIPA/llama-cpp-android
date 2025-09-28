@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application>
         <activity
             android:name=".DemoLLMActivity"
             android:exported="true"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
         <uses-native-library android:name="libOpenCL.so" android:required="true"/>
+        <activity android:name=".EditSystemPromptActivity" />
     </application>
 
 </manifest>

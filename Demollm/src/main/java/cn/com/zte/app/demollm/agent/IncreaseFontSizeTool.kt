@@ -19,7 +19,7 @@ class IncreaseFontSizeTool : ITool {
     override val definition = """
     {
       "tool_name": "increase_font_size",
-      "tool_description": "增大字体大小一号",
+      "tool_description": "增大一号字体",
       "arguments": {}
     }
     """.trimIndent()

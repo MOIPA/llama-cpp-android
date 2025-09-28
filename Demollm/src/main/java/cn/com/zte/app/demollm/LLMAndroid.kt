@@ -27,13 +27,21 @@ class LLMAndroid(): DemoLLMInterface {
             return State.Idle
         }
     }
+
+    private val whisperThreadLocalState: ThreadLocal<WhisperState> = object : ThreadLocal<WhisperState>() {
+        override fun initialValue(): WhisperState {
+            return WhisperState.Idle
+        }
+    }
+
     private val runLoop: CoroutineDispatcher = Executors.newSingleThreadExecutor {
         thread(start = false, name = "Llm-RunLoop") {
             Log.d(tag, "Dedicated thread for native code: ${Thread.currentThread().name}")
 
             // No-op if called more than once.
 //            System.loadLibrary("OpenCL")
-            System.loadLibrary("llm")
+//            System.loadLibrary("llm")
+            System.loadLibrary("demollm-native-lib")
 
             // Set llama log handler to Android
             log_to_android()
@@ -116,6 +124,14 @@ class LLMAndroid(): DemoLLMInterface {
 
     private external fun set_system_prompt(prompt: String)
     private external fun init_system_prompt(context_pointer: Long, model_pointer: Long)
+
+    // Whisper native methods
+    private external fun whisper_init_context_from_file(model_path_str: String): Long
+    private external fun whisper_free_context(context_ptr: Long)
+    private external fun whisper_full_transcribe(context_ptr: Long, num_threads: Int, audio_data: FloatArray, language: String): Int
+    private external fun whisper_get_n_segments(context_ptr: Long): Int
+    private external fun whisper_get_segment_text(context_ptr: Long, index: Int): String
+
     override suspend fun sysinfo(): String {
         return withContext(runLoop) {
             system_info()
@@ -243,6 +259,54 @@ class LLMAndroid(): DemoLLMInterface {
         }
     }
 
+    suspend fun whisperLoad(pathToModel: String) {
+        withContext(runLoop) {
+            when (whisperThreadLocalState.get()) {
+                is WhisperState.Idle -> {
+                    val context = whisper_init_context_from_file(pathToModel)
+                    if (context == 0L) throw IllegalStateException("whisper_init_context_from_file() failed")
+                    whisperThreadLocalState.set(WhisperState.Loaded(context))
+                    Log.i(tag, "Whisper model loaded: $pathToModel")
+                }
+                else -> throw IllegalStateException("Whisper model already loaded")
+            }
+        }
+    }
+
+    suspend fun whisperUnload() {
+        withContext(runLoop) {
+            when (val state = whisperThreadLocalState.get()) {
+                is WhisperState.Loaded -> {
+                    whisper_free_context(state.context)
+                    whisperThreadLocalState.set(WhisperState.Idle)
+                    Log.i(tag, "Whisper model unloaded")
+                }
+                else -> {}
+            }
+        }
+    }
+
+    suspend fun transcribe(audioData: FloatArray, language: String = "en"): String {
+        return withContext(runLoop) {
+            when (val state = whisperThreadLocalState.get()) {
+                is WhisperState.Loaded -> {
+                    val nThreads = 4 // Or get from somewhere else
+                    val result = whisper_full_transcribe(state.context, nThreads, audioData, language)
+                    if (result != 0) {
+                        throw RuntimeException("Transcription failed with code $result")
+                    }
+                    val nSegments = whisper_get_n_segments(state.context)
+                    val text = StringBuilder()
+                    for (i in 0 until nSegments) {
+                        text.append(whisper_get_segment_text(state.context, i))
+                    }
+                    text.toString()
+                }
+                else -> throw IllegalStateException("Whisper model not loaded")
+            }
+        }
+    }
+
     override fun init(context: Context?) {
         TODO("Not yet implemented")
     }
@@ -267,6 +331,11 @@ class LLMAndroid(): DemoLLMInterface {
         private sealed interface State {
             data object Idle: State
             data class Loaded(val model: Long, val context: Long, val batch: Long, val sampler: Long): State
+        }
+
+        private sealed interface WhisperState {
+            data object Idle: WhisperState
+            data class Loaded(val context: Long): WhisperState
         }
 
         // Enforce only one instance of Llm.

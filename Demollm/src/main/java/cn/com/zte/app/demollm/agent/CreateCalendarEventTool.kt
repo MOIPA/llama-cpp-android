@@ -14,12 +14,12 @@ class CreateCalendarEventTool : ITool {
     override val definition = """
     {
       "tool_name": "create_calendar_event",
-      "tool_description": "创建一个新的日历事件、会议或待办事项。注意：如果用户没有提供具体日期，你应该先调用 get_current_date 工具来获取今天的日期。",
+      "tool_description": "创建一个新的日历事件、会议或待办事项。",
       "arguments": {
         "type": "json object",
         "properties": {
           "title": { "type": "string", "description": "title or theme of the event/meeting" },
-          "start_time": { "type": "string", "description": "start time of the event。if the user does not provide then ignore this parameter because the create calendar menu will let user choose the time info" }
+          "start_time": { "type": "string", "description": "start time of the event, example: 2025-09-28。if the user does not provide then ignore this parameter because the create calendar menu will let user choose the time info" }
         },
         "required": ["title"]
       }

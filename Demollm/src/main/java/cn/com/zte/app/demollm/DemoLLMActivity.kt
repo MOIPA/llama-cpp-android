@@ -1,13 +1,21 @@
 package cn.com.zte.app.demollm
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.MotionEvent
+import android.graphics.Color
+import android.graphics.PorterDuff
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
 import android.util.Log
+
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.activity.viewModels
 import androidx.lifecycle.Observer
@@ -34,11 +42,12 @@ class DemoLLMActivity : BaseActivity() {
 
     private val models = mapOf(
         "Qwen3-1.7B" to "",   // 纯文本模型，不支持多模态
+        "270m-router-final" to "",   // 纯文本模型，不支持多模态
+        "gemma-3-270m" to "",   // 纯文本模型，不支持多模态
         "Qwen3-4B" to "",   // 纯文本模型，不支持多模态
         "Qwen3-1.7B-Q4_K_M" to "",   // 纯文本模型，不支持多模态
         "sft-270m-v1.0" to "",   // 纯文本模型，不支持多模态
         "Qwen3-1.7B-tq1_0" to "",   // 纯文本模型，不支持多模态
-        "gemma-3-270m" to "",   // 纯文本模型，不支持多模态
         "SmolVLM2-500M-Video" to "mmproj-SmolVLM2-500M-Video-Instruct-Q8_0.gguf",
         "InternVL3-2B" to "mmproj-InternVL3-2B-Instruct-Q8_0.gguf",
         "Qwen3-0.6B" to "",   // 纯文本模型，不支持多模态
@@ -50,6 +59,20 @@ class DemoLLMActivity : BaseActivity() {
             Log.d("PhotoPicker", "Selected URI: $uri")
         } else {
             Log.d("PhotoPicker", "No media selected")
+        }
+    }
+
+    private val requestAudioPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        if (!isGranted) {
+            Log.e("DemoLLMActivity", "Audio permission denied")
+        }
+    }
+
+
+    private val editSystemPromptLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val editedPrompt = result.data?.getStringExtra(EditSystemPromptActivity.EXTRA_EDITED_PROMPT)
+            editedPrompt?.let { viewModel.updateSystemPrompt(it) }
         }
     }
 
@@ -85,6 +108,14 @@ class DemoLLMActivity : BaseActivity() {
             val defaultMmprojName = models[defaultModelName]!!
             viewModel.startModelLoading(defaultModelName + "-Instruct-Q8_0.gguf", defaultMmprojName)
         }
+        // 加载音频模型
+//        viewModel.whisperLoad("ggml-base.en.bin")
+//        viewModel.whisperLoad("ggml-medium-q4_0.bin")  // 一般 有点慢啊
+//        viewModel.whisperLoad("ggml-tiny-zh_q8_0.bin")  //不行
+        viewModel.whisperLoad("ggml-tiny.bin")  // 不行 很容易有错别字
+//        viewModel.whisperLoad("ggml-small.bin")  // 还行吧
+//        viewModel.whisperLoad("ggml-small-q5_0.bin")  // 还行吧
+
     }
 
     private fun setupRecyclerView() {
@@ -101,18 +132,49 @@ class DemoLLMActivity : BaseActivity() {
             if (message.isNotBlank()) {
                 viewModel.updateMessage(message)
                 binding.messageEditText.text.clear()
-                viewModel.sendWithLoop(this@DemoLLMActivity)
+//                viewModel.sendWithLoop(this@DemoLLMActivity)
+                viewModel.send(this@DemoLLMActivity)
             }
         }
         binding.attachButton.setOnClickListener { pickMedia.launch(PickVisualMediaRequest(PickVisualMedia.ImageOnly)) }
         binding.benchButton.setOnClickListener { viewModel.bench(32, 32, 3) }
         binding.clearImageButton.setOnClickListener { viewModel.clearImage() }
         binding.clearButton.setOnClickListener { viewModel.clearHistoryAndKV() }
-        binding.initSysPromptButton.setOnClickListener { viewModel.triggerInitSystemPrompt() }
+//        binding.initSysPromptButton.setOnClickListener {
+//            viewModel.triggerInitSystemPrompt()
+//        }
+        binding.initThinkButton.setOnClickListener { viewModel.triggerThink() }
+        binding.editSystemPromptButton.setOnClickListener {
+            val intent = Intent(this, EditSystemPromptActivity::class.java).apply {
+                putExtra(EditSystemPromptActivity.EXTRA_CURRENT_PROMPT, viewModel.getSystemPrompt())
+            }
+            editSystemPromptLauncher.launch(intent)
+        }
 
-//        binding.createEventButton.setOnClickListener { createTestEvent() }
-//        binding.deleteEventButton.setOnClickListener { Log.d("CalendarTest", "Delete Event button clicked.") }
-//        binding.viewEventsButton.setOnClickListener { viewTodayEvents() }
+        binding.recordButton.setOnTouchListener { _, event ->
+            val recordButtonBackground = binding.recordButton.background.mutate()
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    recordButtonBackground.setColorFilter(Color.RED, PorterDuff.Mode.SRC_ATOP)
+                    binding.recordButton.setImageResource(android.R.drawable.ic_media_pause)
+                    if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        viewModel.startRecording(this@DemoLLMActivity)
+                    } else {
+                        requestAudioPermission.launch(android.Manifest.permission.RECORD_AUDIO)
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    recordButtonBackground.clearColorFilter()
+                    binding.recordButton.setImageResource(android.R.drawable.ic_btn_speak_now)
+                    if (viewModel.isRecording.value == true) {
+                        viewModel.stopRecording()
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
     }
 
     private fun observeViewModel() {

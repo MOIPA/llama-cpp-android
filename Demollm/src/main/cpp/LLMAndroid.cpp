@@ -8,6 +8,7 @@
 #include "common.h"
 #include "mtmd.h"
 #include "mtmd-helper.h"
+#include "whisper.h"
 
 #define TAG "llama-android.cpp"
 #define LOGi(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
@@ -788,4 +789,64 @@ Java_cn_com_zte_app_demollm_LLMAndroid_init_1system_1prompt(JNIEnv *env, jobject
     const auto context = reinterpret_cast<llama_context *>(context_pointer);
     const auto model = reinterpret_cast<llama_model *>(model_pointer);
     process_system_prompt_and_cache(context, model);
+}
+
+// Whisper JNI functions
+
+extern "C"
+JNIEXPORT jlong JNICALL
+Java_cn_com_zte_app_demollm_LLMAndroid_whisper_1init_1context_1from_1file(
+        JNIEnv *env, jobject, jstring model_path_str) {
+    const char *model_path_chars = env->GetStringUTFChars(model_path_str, NULL);
+    struct whisper_context *context = whisper_init_from_file(model_path_chars);
+    env->ReleaseStringUTFChars(model_path_str, model_path_chars);
+    return reinterpret_cast<jlong>(context);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_cn_com_zte_app_demollm_LLMAndroid_whisper_1free_1context(
+        JNIEnv *env, jobject, jlong context_ptr) {
+    struct whisper_context *context = reinterpret_cast<struct whisper_context *>(context_ptr);
+    whisper_free(context);
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_cn_com_zte_app_demollm_LLMAndroid_whisper_1full_1transcribe(
+        JNIEnv *env, jobject, jlong context_ptr, jint num_threads, jfloatArray audio_data, jstring language_str) {
+    struct whisper_context *context = reinterpret_cast<struct whisper_context *>(context_ptr);
+    jfloat *audio_data_arr = env->GetFloatArrayElements(audio_data, NULL);
+    const jsize audio_data_length = env->GetArrayLength(audio_data);
+
+    struct whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+    params.n_threads = num_threads;
+    
+    const char *language_chars = env->GetStringUTFChars(language_str, NULL);
+    params.language = language_chars;
+
+    whisper_reset_timings(context);
+
+    int result = whisper_full(context, params, audio_data_arr, audio_data_length);
+
+    env->ReleaseStringUTFChars(language_str, language_chars);
+    env->ReleaseFloatArrayElements(audio_data, audio_data_arr, JNI_ABORT);
+    return result;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_cn_com_zte_app_demollm_LLMAndroid_whisper_1get_1n_1segments(
+        JNIEnv *env, jobject, jlong context_ptr) {
+    struct whisper_context *context = reinterpret_cast<struct whisper_context *>(context_ptr);
+    return whisper_full_n_segments(context);
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_cn_com_zte_app_demollm_LLMAndroid_whisper_1get_1segment_1text(
+        JNIEnv *env, jobject, jlong context_ptr, jint index) {
+    struct whisper_context *context = reinterpret_cast<struct whisper_context *>(context_ptr);
+    const char *text = whisper_full_get_segment_text(context, index);
+    return env->NewStringUTF(text);
 }
