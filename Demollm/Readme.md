@@ -13,7 +13,3 @@
 | 220  | 0.002200      |
 | 240  | 0.002000      |
 
-
-关于llama.cpp和whisper.cpp源码，由于修改了CMakeLists（主要是whisper的）内容，最好使用我的版本，已经上传到南大云盘了
-
-下载到 Demollm/src/main/cpp下
